@@ -1,0 +1,158 @@
+# Maintenance Operations Center - Python Dependencies
+# =============================================================================
+
+# Core Framework
+pydantic-ai==0.0.14
+pydantic==2.10.3
+python-dotenv==1.0.1
+
+# AI and Language Models
+openai==1.54.4
+anthropic==0.40.0
+
+# HTTP and API Clients
+httpx==0.28.1
+requests==2.32.3
+aiohttp==3.11.10
+
+# Data Processing and Validation
+pydantic[email]==2.10.3
+python-dateutil==2.9.0
+pytz==2024.2
+
+# Database and Storage
+sqlalchemy==2.0.36
+alembic==1.14.0
+psycopg2-binary==2.9.10
+boto3==1.35.69  # AWS S3 for photo storage
+
+# Communication Services
+twilio==9.3.7  # SMS integration
+google-auth==2.36.0
+google-auth-oauthlib==1.2.1
+google-api-python-client==2.154.0  # Google Calendar
+
+# Voice Processing
+openai-whisper==20240930  # Speech-to-text
+speechrecognition==3.12.0
+pyaudio==0.2.14
+pydub==0.25.1
+
+# Image Processing and Analysis
+pillow==11.0.0
+opencv-python==4.10.0.84
+numpy==2.1.3
+
+# Web Framework (for webhooks and API)
+fastapi==0.115.6
+uvicorn==0.32.1
+starlette==0.41.3
+
+# Background Tasks and Scheduling
+celery==5.4.0
+redis==5.2.1
+apscheduler==3.10.4
+
+# Monitoring and Logging
+structlog==24.4.0
+prometheus-client==0.21.1
+sentry-sdk==2.19.2
+
+# Development and Testing
+pytest==8.3.4
+pytest-asyncio==0.24.0
+pytest-mock==3.14.0
+black==24.10.0
+isort==5.13.2
+mypy==1.13.0
+pre-commit==4.0.1
+
+# Security and Authentication
+cryptography==43.0.3
+pyjwt==2.10.1
+passlib[bcrypt]==1.7.4
+
+# Configuration and Environment
+click==8.1.8  # CLI framework
+rich==13.9.4  # Beautiful CLI output
+typer==0.15.1  # Modern CLI framework
+tabulate==0.9.0  # Table formatting
+
+# Async Support
+asyncio-mqtt==0.17.2
+aiofiles==24.1.0
+asyncpg==0.30.0
+
+# Data Export and Reporting
+openpyxl==3.1.5
+reportlab==4.2.5
+matplotlib==3.10.0
+pandas==2.2.3
+
+# Geographic and Location Services
+geopy==2.4.1
+folium==0.18.0
+
+# Webhook and Integration Support
+webhooks==1.3.0
+python-multipart==0.0.20
+sse-starlette==2.1.3
+
+# Performance and Caching
+redis-py==5.2.1
+aiocache==0.12.3
+memory-profiler==0.61.0
+
+# File Processing
+python-magic==0.4.27
+mimetypes-extended==1.0.0
+
+# Email Support
+email-validator==2.2.0
+aiosmtplib==3.0.2
+
+# Calendar and Time Processing
+icalendar==6.0.1
+recurring-ical-events==3.3.2
+
+# Vendor Integration APIs
+stripe==12.1.0  # Payment processing
+sendgrid==6.12.0  # Alternative email service
+
+# Development Tools
+python-semantic-release==9.15.0
+bump2version==1.0.1
+wheel==0.45.1
+setuptools==75.6.0
+
+# Documentation
+mkdocs==1.6.1
+mkdocs-material==9.5.48
+mkdocs-mermaid2-plugin==1.1.1
+
+# Production Deployment
+gunicorn==23.0.0
+supervisor==4.2.5
+docker==7.1.0
+
+# Platform-specific dependencies
+# Uncomment based on your deployment platform:
+
+# AWS Deployment
+# boto3==1.35.69
+# awscli==1.36.19
+
+# Google Cloud Deployment  
+# google-cloud-storage==2.18.2
+# google-cloud-run==0.10.8
+
+# Azure Deployment
+# azure-storage-blob==12.24.0
+# azure-functions==1.21.3
+
+# Version constraints for stability
+# Pin critical dependencies to avoid breaking changes
+pydantic-ai>=0.0.14,<1.0.0
+openai>=1.54.0,<2.0.0
+fastapi>=0.115.0,<1.0.0
+sqlalchemy>=2.0.0,<3.0.0
