@@ -1,0 +1,100 @@
+{
+  "maintenance_coordination_rules_phase1": {
+    "version": "1.0-phase1",
+    "description": "Essential rules for Phase 1: Foundation & Core Control",
+    "implementation_priority": "immediate"
+  },
+  
+  "core_principles_phase1": {
+    "coordinator_authority": {
+      "description": "Only coordinator can assign and complete work orders",
+      "technician_restrictions": {
+        "cannot_mark_complete": true,
+        "cannot_mark_done": true,
+        "cannot_accept_new_orders": true,
+        "can_only_mark_ready_review": true
+      },
+      "coordinator_exclusive": {
+        "assign_work_orders": true,
+        "mark_work_complete": true,
+        "final_approval_authority": true
+      },
+      "enforcement": "mandatory"
+    },
+    "basic_documentation": {
+      "description": "Essential photo requirements for Phase 1",
+      "requirements": ["before_photo", "after_photo"],
+      "location_verification": true,
+      "enforcement": "mandatory"
+    },
+    "emergency_priority": {
+      "description": "Safety issues override all other work",
+      "dean_override_allowed": true,
+      "coordinator_notification_required": true
+    }
+  },
+  
+  "priority_classification_basic": {
+    "emergency": {
+      "keywords": ["leak", "flooding", "no heat", "electrical safety", "gas smell"],
+      "response_time_hours": 2,
+      "coordinator_notification": true,
+      "can_interrupt_scheduled_work": true
+    },
+    "standard": {
+      "keywords": ["repair", "maintenance", "not working", "broken"],
+      "response_time_hours": 24,
+      "business_hours_only": true
+    },
+    "low": {
+      "keywords": ["cosmetic", "minor", "routine"],
+      "response_time_hours": 72,
+      "can_be_deferred": true
+    }
+  },
+  
+  "status_workflow_phase1": {
+    "valid_statuses": ["new", "assigned", "in_progress", "ready_review", "completed", "cancelled"],
+    "technician_allowed": ["ready_review"],
+    "coordinator_only": ["assigned", "completed", "cancelled"],
+    "transitions": {
+      "new": ["assigned", "cancelled"],
+      "assigned": ["in_progress", "cancelled"],
+      "in_progress": ["ready_review", "cancelled"],
+      "ready_review": ["completed", "cancelled"],
+      "completed": [],
+      "cancelled": []
+    },
+    "requirements": {
+      "ready_review": {
+        "photos_required": true,
+        "location_verification": true,
+        "notes_required": true
+      },
+      "completed": {
+        "coordinator_approval_only": true,
+        "quality_check_passed": true
+      }
+    }
+  },
+  
+  "communication_basic": {
+    "sms_integration": {
+      "technician_notifications": true,
+      "basic_tenant_updates": true,
+      "coordinator_alerts": true
+    },
+    "response_times": {
+      "coordinator_to_technician": "1_hour",
+      "technician_acknowledgment": "15_minutes"
+    }
+  },
+  
+  "voice_processing_phase1": {
+    "input_sources": ["phone", "telegram"],
+    "confidence_threshold": 0.8,
+    "auto_create_if_confident": true,
+    "required_extraction": ["description", "building", "priority_indicators"],
+    "fallback_to_manual": true
+  }
+}
