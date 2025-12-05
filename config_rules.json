@@ -1,0 +1,512 @@
+{
+  "maintenance_coordination_rules": {
+    "version": "1.0",
+    "last_updated": "2024-08-20",
+    "description": "Comprehensive maintenance coordination rules based on documented requirements"
+  },
+  
+  "core_principles": {
+    "documentation_first": {
+      "description": "All work must be properly documented with photos",
+      "requirements": ["before_photos", "after_photos", "cleanup_photos"],
+      "enforcement": "mandatory"
+    },
+    "dual_verification": {
+      "description": "All completions must be verified by both AI and coordinator",
+      "ai_confidence_threshold": 0.90,
+      "coordinator_approval_required": true,
+      "enforcement": "mandatory"
+    },
+    "clean_work_areas": {
+      "description": "Work area must always be left clean",
+      "cleanup_checklist": [
+        "no_tools_left",
+        "no_debris_or_packaging",
+        "surfaces_wiped_clean",
+        "furniture_returned_to_position",
+        "protective_coverings_removed"
+      ],
+      "verification_required": true
+    },
+    "clear_communication": {
+      "description": "Communication must be prompt and clear",
+      "response_times": {
+        "initial_tenant_response": "1_hour",
+        "scheduling_options": "2_hours",
+        "technician_assignment": "24_hours",
+        "status_updates": "1_hour_during_work"
+      }
+    },
+    "safety_priority": {
+      "description": "Safety and emergency issues take absolute priority",
+      "override_authority": true,
+      "escalation_required": true
+    }
+  },
+  
+  "priority_classification": {
+    "emergency": {
+      "keywords": [
+        "leak", "leaking", "flooding", "water damage",
+        "no heat", "heating failure", "furnace out", "boiler down",
+        "electrical safety", "sparks", "exposed wires", "electrical fire",
+        "security", "broken lock", "door won't lock", "window broken",
+        "gas smell", "carbon monoxide", "smoke"
+      ],
+      "response_time_hours": 2,
+      "technician_assignment_time_hours": 2,
+      "requires_immediate_attention": true,
+      "can_override_business_hours": true,
+      "coordinator_notification_required": true,
+      "manager_notification_required": true
+    },
+    "high": {
+      "keywords": [
+        "hvac failure", "ac not working", "heating issues",
+        "appliance broken", "refrigerator not working", "stove broken",
+        "plumbing issue", "toilet not working", "sink clogged",
+        "hot water", "water heater", "no hot water"
+      ],
+      "response_time_hours": 24,
+      "technician_assignment_time_hours": 24,
+      "business_hours_only": true,
+      "coordinator_approval_required": true
+    },
+    "medium": {
+      "keywords": [
+        "maintenance", "repair", "fix", "replace",
+        "light fixture", "outlet", "switch",
+        "cabinet", "door handle", "window screen",
+        "faucet drip", "minor leak", "caulking"
+      ],
+      "response_time_hours": 72,
+      "technician_assignment_time_hours": 48,
+      "business_hours_only": true,
+      "scheduling_flexibility": "high"
+    },
+    "low": {
+      "keywords": [
+        "routine maintenance", "preventive", "inspection",
+        "filter change", "cleaning", "tune-up"
+      ],
+      "response_time_hours": 168,
+      "technician_assignment_time_hours": 168,
+      "business_hours_only": true,
+      "scheduling_flexibility": "maximum"
+    },
+    "cosmetic": {
+      "keywords": [
+        "paint", "touch up", "cosmetic", "appearance",
+        "scuff marks", "nail holes", "minor scratches"
+      ],
+      "response_time_hours": 168,
+      "technician_assignment_time_hours": 336,
+      "business_hours_only": true,
+      "scheduling_flexibility": "maximum",
+      "can_be_deferred": true
+    }
+  },
+  
+  "time_estimation_rules": {
+    "base_estimates": {
+      "plumbing_issues": {
+        "baseline_hours": 2.5,
+        "complexity_factors": {
+          "simple_repair": 1.0,
+          "parts_replacement": 1.3,
+          "multiple_fixtures": 1.5,
+          "difficult_access": 1.8
+        }
+      },
+      "electrical_issues": {
+        "baseline_hours": 1.5,
+        "complexity_factors": {
+          "outlet_switch": 1.0,
+          "fixture_replacement": 1.2,
+          "circuit_work": 2.0,
+          "panel_work": 3.0
+        }
+      },
+      "hvac_service": {
+        "baseline_hours": 3.0,
+        "complexity_factors": {
+          "filter_change": 0.3,
+          "routine_maintenance": 1.0,
+          "repair_work": 1.5,
+          "system_replacement": 4.0
+        }
+      },
+      "appliance_repair": {
+        "baseline_hours": 2.0,
+        "complexity_factors": {
+          "minor_adjustment": 0.5,
+          "parts_replacement": 1.2,
+          "diagnostic_required": 1.5,
+          "complex_repair": 2.5
+        }
+      },
+      "general_maintenance": {
+        "baseline_hours": 1.5,
+        "complexity_factors": {
+          "simple_task": 0.8,
+          "standard_task": 1.0,
+          "complex_task": 1.5,
+          "multi_step_task": 2.0
+        }
+      }
+    },
+    "additional_time_factors": {
+      "parts_likely_needed": 1.0,
+      "complex_access_requirements": 0.5,
+      "coordination_with_tenant": 0.25,
+      "multiple_units": 0.5,
+      "first_time_building": 0.25
+    }
+  },
+  
+  "technician_management": {
+    "access_restrictions": {
+      "cannot_mark_complete": true,
+      "cannot_mark_done": true,
+      "cannot_accept_new_orders": true,
+      "cannot_override_coordinator": true,
+      "location_verification_required": true,
+      "photo_documentation_mandatory": true
+    },
+    "allowed_actions": {
+      "view_assigned_orders": true,
+      "add_notes": true,
+      "upload_photos": true,
+      "mark_ready_for_review": true,
+      "request_parts": true,
+      "report_additional_issues": true,
+      "update_progress": true
+    },
+    "workload_management": {
+      "max_daily_work_orders": 6,
+      "max_concurrent_active": 3,
+      "emergency_override_allowed": true,
+      "coordinator_notification_on_override": true,
+      "workload_balancing_priority": "high"
+    },
+    "arrival_protocol": {
+      "arrival_confirmation_window_minutes": 15,
+      "photo_arrival_required": true,
+      "initial_condition_documentation": true,
+      "ai_analysis_request": true
+    },
+    "completion_requirements": {
+      "before_after_photos": true,
+      "cleanup_photos": true,
+      "tool_removal_confirmation": true,
+      "ai_verification_request": true,
+      "coordinator_approval_required": true,
+      "tenant_confirmation_attempted": true
+    }
+  },
+  
+  "coordinator_authority": {
+    "exclusive_permissions": {
+      "assign_work_orders": true,
+      "mark_work_complete": true,
+      "approve_vendor_selections": true,
+      "override_ai_recommendations": true,
+      "modify_technician_assignments": true,
+      "emergency_resource_allocation": true
+    },
+    "approval_requirements": {
+      "all_work_order_completions": true,
+      "vendor_cost_over_500": true,
+      "emergency_overtime": true,
+      "policy_exceptions": true,
+      "quality_control_failures": true
+    },
+    "notification_triggers": {
+      "dean_technician_override": true,
+      "emergency_work_assignment": true,
+      "quality_control_failure": true,
+      "tenant_access_denied": true,
+      "work_exceeding_estimate": true
+    }
+  },
+  
+  "status_workflow": {
+    "valid_transitions": {
+      "new": ["scheduled", "cancelled"],
+      "scheduled": ["in_progress", "cancelled", "waiting_access"],
+      "in_progress": ["ready_review", "waiting_parts", "waiting_access", "cancelled"],
+      "waiting_parts": ["in_progress", "cancelled"],
+      "waiting_access": ["scheduled", "in_progress", "cancelled"],
+      "ready_review": ["completed", "failed_review"],
+      "failed_review": ["in_progress", "cancelled"],
+      "completed": [],
+      "cancelled": []
+    },
+    "role_restrictions": {
+      "technician": {
+        "can_transition_to": ["ready_review", "waiting_parts", "waiting_access"],
+        "cannot_transition_to": ["completed", "cancelled"],
+        "requires_photos_for": ["ready_review"],
+        "requires_location_for": ["ready_review"]
+      },
+      "coordinator": {
+        "can_transition_to": ["scheduled", "completed", "failed_review", "cancelled"],
+        "override_authority": true,
+        "approval_required_for": ["completed"]
+      },
+      "manager": {
+        "emergency_override": true,
+        "can_transition_to": ["cancelled"],
+        "notification_required": true
+      }
+    },
+    "automatic_transitions": {
+      "no_access_after_3_attempts": {
+        "from": "scheduled",
+        "to": "waiting_access",
+        "escalation_required": true
+      },
+      "parts_ordered": {
+        "from": "in_progress",
+        "to": "waiting_parts",
+        "notification_required": true
+      }
+    }
+  },
+  
+  "quality_control": {
+    "photo_requirements": {
+      "minimum_photos": 2,
+      "required_types": ["before", "after", "cleanup"],
+      "quality_standards": {
+        "well_lit": true,
+        "clear_subject": true,
+        "same_angle_before_after": true,
+        "context_included": true,
+        "metadata_required": true
+      },
+      "location_verification": {
+        "gps_coordinates": true,
+        "building_identifier": true,
+        "unit_identifier": true
+      }
+    },
+    "ai_analysis_thresholds": {
+      "automated_decisions": 0.90,
+      "emergency_classification": 0.95,
+      "completion_verification": 0.98,
+      "human_review_below": 0.90
+    },
+    "cleanup_standards": {
+      "no_tools_at_site": true,
+      "no_debris_or_packaging": true,
+      "surfaces_cleaned": true,
+      "furniture_repositioned": true,
+      "protective_coverings_removed": true,
+      "verification_photos_required": true
+    },
+    "rework_triggers": {
+      "failed_photo_analysis": true,
+      "tenant_complaint": true,
+      "safety_concerns": true,
+      "incomplete_work": true,
+      "cleanup_failure": true
+    }
+  },
+  
+  "communication_protocols": {
+    "tenant_communication": {
+      "initial_response_time_hours": 1,
+      "scheduling_options_time_hours": 2,
+      "confirmation_required": true,
+      "update_frequency": "major_changes_only",
+      "satisfaction_survey_after": true,
+      "no_access_escalation": {
+        "attempt_1": "phone_call",
+        "attempt_2": "email_written_notice",
+        "attempt_3": "case_worker_contact",
+        "attempt_4": "legal_team_escalation"
+      }
+    },
+    "technician_communication": {
+      "assignment_notice_hours": 24,
+      "reminder_before_hours": 1,
+      "response_required_minutes": 15,
+      "progress_update_frequency": "hourly_during_work",
+      "completion_notification": true
+    },
+    "escalation_protocols": {
+      "no_arrival_15_minutes": "contact_technician",
+      "no_response_30_minutes": "contact_supervisor",
+      "work_exceeding_estimate": "notify_property_manager",
+      "failed_verification": "schedule_immediate_review",
+      "tenant_dissatisfaction": "immediate_manager_contact"
+    }
+  },
+  
+  "emergency_protocols": {
+    "response_requirements": {
+      "immediate_technician_notification": true,
+      "maximum_response_time_hours": 2,
+      "continuous_status_updates": true,
+      "manager_notification_required": true,
+      "safety_measures_priority": true
+    },
+    "after_hours_protocol": {
+      "emergency_contacts_maintained": true,
+      "on_call_technician_available": true,
+      "response_time_maximum_hours": 3,
+      "additional_compensation": true,
+      "full_documentation_required": true
+    },
+    "escalation_chain": {
+      "level_1": "assigned_technician",
+      "level_2": "coordinator",
+      "level_3": "property_manager",
+      "level_4": "senior_management",
+      "emergency_override": "dean_direct_assignment"
+    }
+  },
+  
+  "vendor_management": {
+    "request_process": {
+      "coordinator_creates_request": true,
+      "never_direct_assignment": true,
+      "vendor_response_required": true,
+      "coordinator_final_selection": true,
+      "same_quality_standards": true
+    },
+    "response_timeframes": {
+      "emergency_contractors_hours": 2,
+      "specialized_services_hours": 4,
+      "standard_services_hours": 24,
+      "project_contractors_hours": 48
+    },
+    "performance_tracking": {
+      "response_time_measurement": true,
+      "completion_rate_tracking": true,
+      "quality_score_maintenance": true,
+      "cost_performance_monitoring": true,
+      "annual_review_required": true
+    },
+    "categories": {
+      "emergency": {
+        "response_time_hours": 2,
+        "availability_247": true,
+        "premium_rates": true,
+        "backup_required": true
+      },
+      "specialized": {
+        "certification_required": true,
+        "insurance_verified": true,
+        "quality_standards_enforced": true,
+        "coordinator_approval_required": true
+      },
+      "seasonal": {
+        "advance_scheduling": true,
+        "bulk_work_optimization": true,
+        "performance_tracking": true,
+        "contract_renewals": true
+      },
+      "project": {
+        "detailed_quotes_required": true,
+        "milestone_tracking": true,
+        "quality_inspections": true,
+        "final_approval_required": true
+      }
+    }
+  },
+  
+  "preventive_maintenance": {
+    "boiler_maintenance": {
+      "annual_requirement": true,
+      "drainage_required": true,
+      "anode_rod_replacement": true,
+      "season_preparation": "october_november",
+      "systematic_approach": true,
+      "integration_with_visits": true
+    },
+    "recurring_schedules": {
+      "hvac_maintenance_months": 6,
+      "appliance_inspection_months": 12,
+      "safety_inspection_months": 12,
+      "filter_replacement_months": 3
+    },
+    "asset_tracking": {
+      "replacement_records": true,
+      "warranty_tracking": true,
+      "failure_pattern_analysis": true,
+      "cost_optimization": true
+    }
+  },
+  
+  "performance_metrics": {
+    "operational_targets": {
+      "first_time_completion_rate": 0.85,
+      "quality_inspection_pass_rate": 0.90,
+      "schedule_adherence_rate": 0.92,
+      "tenant_satisfaction_score": 0.88,
+      "rework_rate_maximum": 0.15
+    },
+    "technical_targets": {
+      "ai_photo_analysis_seconds": 45,
+      "work_order_processing_seconds": 120,
+      "scheduling_optimization_seconds": 30,
+      "status_synchronization_seconds": 10,
+      "system_response_time_seconds": 3
+    },
+    "tracking_frequency": {
+      "daily_metrics": true,
+      "weekly_analysis": true,
+      "monthly_strategic_review": true,
+      "quarterly_optimization": true,
+      "annual_comprehensive_review": true
+    }
+  },
+  
+  "data_management": {
+    "retention_policies": {
+      "active_work_orders": "indefinite",
+      "completed_work_orders_years": 7,
+      "photos_years": 5,
+      "communication_logs_years": 3,
+      "performance_data_years": 2,
+      "audit_trail_years": 7
+    },
+    "backup_requirements": {
+      "frequency_hours": 6,
+      "retention_days": 90,
+      "disaster_recovery_hours": 4,
+      "data_integrity_verification": true
+    },
+    "compliance_requirements": {
+      "audit_trail_complete": true,
+      "data_encryption": true,
+      "access_control": true,
+      "privacy_protection": true,
+      "regulatory_compliance": true
+    }
+  },
+  
+  "system_integration": {
+    "appfolio_integration": {
+      "webhook_processing": true,
+      "bidirectional_sync": true,
+      "tenant_data_access": true,
+      "billing_integration": true
+    },
+    "foundation_agents": {
+      "sms_verification_required": true,
+      "calendar_confirmation": true,
+      "documentation_mandatory": true,
+      "rules_enforcement": true,
+      "payment_integration": true
+    },
+    "real_time_requirements": {
+      "status_updates": true,
+      "location_tracking": true,
+      "communication_sync": true,
+      "performance_monitoring": true
+    }
+  }
+}
