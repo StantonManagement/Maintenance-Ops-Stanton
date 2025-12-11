@@ -8,7 +8,45 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ============================================================
--- HELPER FUNCTIONS (Create these first - no dependencies)
+-- 1. PORTFOLIOS - Extend existing table
+-- ============================================================
+DO $$
+BEGIN
+    -- Add missing columns to existing portfolios table
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'portfolios' AND table_schema = 'public') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'portfolios' AND column_name = 'settings') THEN
+            ALTER TABLE public.portfolios ADD COLUMN settings JSONB DEFAULT '{}'::jsonb;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'portfolios' AND column_name = 'appfolio_account_id') THEN
+            ALTER TABLE public.portfolios ADD COLUMN appfolio_account_id TEXT;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'portfolios' AND column_name = 'subscription_tier') THEN
+            ALTER TABLE public.portfolios ADD COLUMN subscription_tier TEXT DEFAULT 'standard';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'portfolios' AND column_name = 'active') THEN
+            ALTER TABLE public.portfolios ADD COLUMN active BOOLEAN DEFAULT true;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'portfolios' AND column_name = 'code') THEN
+            ALTER TABLE public.portfolios ADD COLUMN code TEXT;
+        END IF;
+    END IF;
+END $$;
+
+-- ============================================================
+-- 2. PORTFOLIO USERS (must exist before helper functions)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.portfolio_users (
+    portfolio_id TEXT REFERENCES public.portfolios(id),
+    user_id UUID REFERENCES auth.users(id),
+    role TEXT NOT NULL CHECK (role IN ('owner', 'manager', 'coordinator', 'admin', 'technician', 'viewer')),
+    permissions TEXT[] DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    granted_by UUID REFERENCES auth.users(id),
+    PRIMARY KEY (portfolio_id, user_id)
+);
+
+-- ============================================================
+-- HELPER FUNCTIONS (after portfolio_users table exists)
 -- ============================================================
 
 -- Function to get user's portfolio IDs
@@ -45,44 +83,6 @@ BEGIN
   RETURN found_role;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- ============================================================
--- 1. PORTFOLIOS - Extend existing table
--- ============================================================
-DO $$
-BEGIN
-    -- Add missing columns to existing portfolios table
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'portfolios' AND table_schema = 'public') THEN
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'portfolios' AND column_name = 'settings') THEN
-            ALTER TABLE public.portfolios ADD COLUMN settings JSONB DEFAULT '{}'::jsonb;
-        END IF;
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'portfolios' AND column_name = 'appfolio_account_id') THEN
-            ALTER TABLE public.portfolios ADD COLUMN appfolio_account_id TEXT;
-        END IF;
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'portfolios' AND column_name = 'subscription_tier') THEN
-            ALTER TABLE public.portfolios ADD COLUMN subscription_tier TEXT DEFAULT 'standard';
-        END IF;
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'portfolios' AND column_name = 'active') THEN
-            ALTER TABLE public.portfolios ADD COLUMN active BOOLEAN DEFAULT true;
-        END IF;
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'portfolios' AND column_name = 'code') THEN
-            ALTER TABLE public.portfolios ADD COLUMN code TEXT;
-        END IF;
-    END IF;
-END $$;
-
--- ============================================================
--- 2. PORTFOLIO USERS
--- ============================================================
-CREATE TABLE IF NOT EXISTS public.portfolio_users (
-    portfolio_id TEXT REFERENCES public.portfolios(id),
-    user_id UUID REFERENCES auth.users(id),
-    role TEXT NOT NULL CHECK (role IN ('owner', 'manager', 'coordinator', 'admin', 'technician', 'viewer')),
-    permissions TEXT[] DEFAULT '{}',
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    granted_by UUID REFERENCES auth.users(id),
-    PRIMARY KEY (portfolio_id, user_id)
-);
 
 -- ============================================================
 -- 3. PROFILES
