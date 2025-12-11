@@ -9,11 +9,9 @@ import {
   Plus, 
   Clock, 
   CheckCircle, 
-  AlertTriangle,
   MessageSquare,
   Camera,
   Calendar,
-  Star,
   Send,
   ChevronRight,
   Wrench,
@@ -77,9 +75,6 @@ const categories = [
 
 export default function TenantPortal() {
   const { 
-    session, 
-    requests: portalRequests, 
-    loading, 
     isVerified,
     startVerification, 
     verifyCode, 

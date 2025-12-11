@@ -4,6 +4,7 @@ import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
 import { Search, GripVertical } from 'lucide-react';
 import { Input } from '../ui/input';
+import { setDraggedWorkOrder } from '../../pages/CalendarPage';
 
 interface UnscheduledQueueProps {
   workOrders: WorkOrder[];
@@ -18,6 +19,9 @@ export function UnscheduledQueue({ workOrders }: UnscheduledQueueProps) {
   );
 
   const handleDragStart = (e: React.DragEvent, workOrder: WorkOrder) => {
+    // Store the dragged work order for the calendar to access
+    setDraggedWorkOrder(workOrder);
+    
     // Set data for both internal logic and react-big-calendar
     e.dataTransfer.setData('workOrderId', workOrder.id);
     e.dataTransfer.setData('application/json', JSON.stringify(workOrder));
@@ -33,6 +37,11 @@ export function UnscheduledQueue({ workOrders }: UnscheduledQueueProps) {
     document.body.appendChild(dragPreview);
     e.dataTransfer.setDragImage(dragPreview, 0, 0);
     setTimeout(() => document.body.removeChild(dragPreview), 0);
+  };
+
+  const handleDragEnd = () => {
+    // Clear the dragged work order if drag was cancelled
+    setDraggedWorkOrder(null);
   };
 
   return (
@@ -60,6 +69,7 @@ export function UnscheduledQueue({ workOrders }: UnscheduledQueueProps) {
               key={wo.id}
               draggable
               onDragStart={(e) => handleDragStart(e, wo)}
+              onDragEnd={handleDragEnd}
               className="p-3 bg-white border rounded-md shadow-sm cursor-move hover:shadow-md transition-all group"
               style={{
                 borderLeft: `4px solid ${getPriorityColor(wo.priority)}`

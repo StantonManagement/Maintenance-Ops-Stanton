@@ -10,7 +10,8 @@ export function useAssignWorkOrder() {
     technicianId: string,
     scheduledDate: Date,
     timeSlot?: { start: string; end: string },
-    assignedBy: string = 'coordinator'
+    assignedBy: string = 'coordinator',
+    options?: { silent?: boolean }
   ) => {
     setLoading(true);
     
@@ -40,26 +41,26 @@ export function useAssignWorkOrder() {
           });
 
         if (insertError) {
-          toast.error('Failed to assign work order');
+          if (!options?.silent) toast.error('Failed to assign work order');
           return { success: false, message: insertError.message };
         }
 
-        toast.success('Work order assigned');
+        if (!options?.silent) toast.success('Work order assigned');
         return { success: true, message: 'Assignment created' };
       }
 
       const result = data?.[0];
       
       if (result?.success) {
-        toast.success('Work order assigned');
+        if (!options?.silent) toast.success('Work order assigned');
       } else {
-        toast.error(result?.message || 'Assignment failed');
+        if (!options?.silent) toast.error(result?.message || 'Assignment failed');
       }
       
       return result || { success: false, message: 'No response from server' };
     } catch (err) {
       console.error('Assignment error:', err);
-      toast.error('Failed to assign work order');
+      if (!options?.silent) toast.error('Failed to assign work order');
       return { success: false, message: 'Assignment failed' };
     } finally {
       setLoading(false);

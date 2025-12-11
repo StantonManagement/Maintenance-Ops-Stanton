@@ -21,7 +21,7 @@ export function FinancialClassification({ description, workType, currentCategory
   const [reason, setReason] = useState<string>('');
   const [lifespan, setLifespan] = useState<number>(0);
   const [responsibility, setResponsibility] = useState<'owner' | 'tenant' | 'shared'>('owner');
-  const [costEstimate, setCostEstimate] = useState<string>('');
+  const [costEstimate] = useState<string>('');
 
   useEffect(() => {
     if (currentCategory === 'unclassified' && description) {

@@ -8,14 +8,19 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
-  MapPin,
-  Phone,
   Key,
   FileText,
   Image as ImageIcon,
   Info
 } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { AccessAttemptPanel } from "./AccessAttemptPanel";
+import { useVendorRequests } from "../hooks/useVendorRequests";
+import { VendorRequestBadge } from "./VendorRequestBadge";
+import { VendorResponsesPanel } from "./VendorResponsesPanel";
+import { VendorRequestModal } from "./VendorRequestModal";
+import { Button } from "./ui/button";
+import { useState, useEffect } from "react";
 
 interface WorkOrderPreviewProps {
   workOrder?: WorkOrder;
@@ -69,6 +74,17 @@ const mockPhotos = [
 ];
 
 export function WorkOrderPreview({ workOrder }: WorkOrderPreviewProps) {
+  const { requests, fetchVendorRequests } = useVendorRequests();
+  const [showVendorModal, setShowVendorModal] = useState(false);
+
+  useEffect(() => {
+    if (workOrder) {
+      fetchVendorRequests(workOrder.id);
+    }
+  }, [workOrder, fetchVendorRequests]);
+
+  const activeRequest = requests.find(r => r.status !== 'cancelled' && r.status !== 'completed');
+
   if (!workOrder) {
     return (
       <div className="w-[480px] border-l flex flex-col" style={{ borderColor: "var(--border-default)", backgroundColor: "var(--bg-card)" }}>
@@ -119,6 +135,12 @@ export function WorkOrderPreview({ workOrder }: WorkOrderPreviewProps) {
           >
             {workOrder.status}
           </Badge>
+          {activeRequest && (
+            <VendorRequestBadge 
+              status={activeRequest.status}
+              count={activeRequest.responseCount}
+            />
+          )}
         </div>
 
         <div className="flex items-center gap-4 text-[13px]">
@@ -135,6 +157,14 @@ export function WorkOrderPreview({ workOrder }: WorkOrderPreviewProps) {
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto">
+        
+        {/* Access Attempt Panel (if Waiting for Access) */}
+        {workOrder.status === 'Waiting for Access' && (
+          <div className="px-6 py-5 border-b" style={{ borderColor: "var(--border-default)" }}>
+            <AccessAttemptPanel workOrderId={workOrder.id} />
+          </div>
+        )}
+
         {/* Photos Section */}
         {hasPhotos && (
           <div className="px-6 py-5 border-b" style={{ borderColor: "var(--border-default)" }}>
@@ -304,6 +334,31 @@ export function WorkOrderPreview({ workOrder }: WorkOrderPreviewProps) {
           </div>
         )}
 
+        {/* Vendor Request Actions */}
+        {!workOrder.assignee && !workOrder.vendor && (
+          <div className="px-6 py-5 border-b" style={{ borderColor: "var(--border-default)" }}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-[14px]" style={{ color: "var(--text-primary)" }}>
+                Vendor Proposal
+              </h3>
+              {!activeRequest && (
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => setShowVendorModal(true)}
+                  className="h-8 text-xs"
+                >
+                  Request Vendor
+                </Button>
+              )}
+            </div>
+            
+            {activeRequest && (
+              <VendorResponsesPanel requestId={activeRequest.id} />
+            )}
+          </div>
+        )}
+
         {/* Actions Log */}
         {workOrder.actionsLog && workOrder.actionsLog.length > 0 && (
           <div className="px-6 py-5">
@@ -328,6 +383,12 @@ export function WorkOrderPreview({ workOrder }: WorkOrderPreviewProps) {
           </div>
         )}
       </div>
+
+      <VendorRequestModal 
+        isOpen={showVendorModal}
+        onClose={() => setShowVendorModal(false)}
+        workOrderId={workOrder.id}
+      />
     </div>
   );
 }

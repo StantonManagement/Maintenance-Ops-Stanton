@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { supabase } from '../services/supabase';
 
 export function useOverrideNotification() {
   const [loading, setLoading] = useState(false);
@@ -8,13 +9,35 @@ export function useOverrideNotification() {
     technicianName: string, 
     workOrderTitle: string, 
     reason: string, 
-    notes?: string
+    notes?: string,
+    technicianId?: string
   ) => {
     try {
       setLoading(true);
       
-      // 1. Create notification record
-      // In a real app: await supabase.from('notifications').insert(...)
+      // 1. Create notification/history record
+      const detailString = `Work Order: ${workOrderTitle}. Notes: ${notes || ''}`;
+      
+      if (technicianId) {
+        // Map reason to valid enum values if necessary
+        // Valid: 'emergency', 'turnover', 'inspection', 'other'
+        let validReason = reason.toLowerCase();
+        if (!['emergency', 'turnover', 'inspection', 'other'].includes(validReason)) {
+          validReason = 'other';
+        }
+
+        const { error } = await supabase.from('override_history').insert({
+          technician_id: technicianId,
+          override_by: 'Coordinator', 
+          reason: validReason, 
+          detail: detailString
+        });
+
+        if (error) {
+          console.error('Supabase insert error:', error);
+          // Don't throw, just log, so we don't block the assignment flow
+        }
+      }
       
       // 2. Trigger toast (immediate feedback)
       toast.warning(`Override Approved: ${technicianName} assigned to "${workOrderTitle}"`, {
@@ -22,15 +45,6 @@ export function useOverrideNotification() {
         duration: 5000,
       });
 
-      // 3. Log to console for dev
-      console.log('[Override Log]', {
-        technician: technicianName,
-        workOrder: workOrderTitle,
-        reason,
-        notes,
-        timestamp: new Date().toISOString()
-      });
-      
       return true;
     } catch (error) {
       console.error('Failed to trigger override notification:', error);

@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, VoiceSubmissionDB } from './supabase';
 
 export interface VoiceSubmission {
   id: string;
@@ -27,64 +27,118 @@ export interface ConfidenceField<T> {
   confidence: number; // 0-100
 }
 
-// Mock AI extraction - in production this would call Claude/OpenAI
-export async function extractWorkOrderData(transcription: string): Promise<ExtractedWorkOrderData> {
-  // Simulate AI processing delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  const lowerText = transcription.toLowerCase();
-  
-  // Extract priority based on keywords
-  let priority: ExtractedWorkOrderData['priority'] = { value: 'normal', confidence: 60 };
-  if (lowerText.includes('emergency') || lowerText.includes('urgent') || lowerText.includes('flooding') || lowerText.includes('fire')) {
-    priority = { value: 'emergency', confidence: 90 };
-  } else if (lowerText.includes('asap') || lowerText.includes('soon') || lowerText.includes('broken')) {
-    priority = { value: 'high', confidence: 75 };
-  }
-  
-  // Extract property/unit patterns
-  const unitMatch = lowerText.match(/unit\s*(\d+[a-z]?)/i) || lowerText.match(/apartment\s*(\d+[a-z]?)/i);
-  const buildingMatch = lowerText.match(/building\s*([a-z]|\d+)/i) || lowerText.match(/(\d+)\s*(park|maple|main|street)/i);
-  
-  // Extract issue category
-  let category: ExtractedWorkOrderData['category'] = { value: 'General', confidence: 50 };
-  if (lowerText.includes('leak') || lowerText.includes('water') || lowerText.includes('plumb') || lowerText.includes('toilet') || lowerText.includes('sink') || lowerText.includes('faucet')) {
-    category = { value: 'Plumbing', confidence: 85 };
-  } else if (lowerText.includes('electric') || lowerText.includes('outlet') || lowerText.includes('light') || lowerText.includes('power')) {
-    category = { value: 'Electrical', confidence: 85 };
-  } else if (lowerText.includes('heat') || lowerText.includes('ac') || lowerText.includes('air condition') || lowerText.includes('hvac') || lowerText.includes('cold') || lowerText.includes('hot')) {
-    category = { value: 'HVAC', confidence: 80 };
-  } else if (lowerText.includes('appliance') || lowerText.includes('refrigerator') || lowerText.includes('stove') || lowerText.includes('dishwasher') || lowerText.includes('washer') || lowerText.includes('dryer')) {
-    category = { value: 'Appliance', confidence: 85 };
-  } else if (lowerText.includes('door') || lowerText.includes('window') || lowerText.includes('lock') || lowerText.includes('key')) {
-    category = { value: 'Doors/Windows', confidence: 80 };
-  }
-  
-  return {
-    property: buildingMatch 
-      ? { value: `Building ${buildingMatch[1].toUpperCase()}`, confidence: 70 }
-      : { value: '', confidence: 0 },
-    unit: unitMatch 
-      ? { value: `Unit ${unitMatch[1]}`, confidence: 80 }
-      : { value: '', confidence: 0 },
-    issue_description: { value: transcription, confidence: 95 },
-    priority,
-    category,
-    tenant_name: { value: '', confidence: 0 }, // Would need caller ID or voice recognition
-  };
+export interface ExtractedWorkOrder {
+  unit: string;
+  building: string;
+  priority: 'emergency' | 'high' | 'medium' | 'low';
+  category: 'plumbing' | 'electrical' | 'hvac' | 'appliance' | 'general' | 'structural';
+  description: string;
+  urgencyIndicators: string[];
+  confidence: number;
 }
 
-// Mock transcription - in production this would call Whisper API
-export async function transcribeAudio(_audioUrl: string): Promise<{ text: string; language: string }> {
-  // Simulate transcription delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  // In production, this would call the Whisper API with _audioUrl
-  // For now, return mock data
-  return {
-    text: "This is a mock transcription. In production, this would be the actual transcribed text from the audio file.",
-    language: "en"
-  };
+// Real AI extraction via Edge Function
+export async function extractWorkOrderData(transcription: string): Promise<ExtractedWorkOrderData> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-work-order`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session?.access_token}`
+      },
+      body: JSON.stringify({ transcription })
+    });
+
+    if (!response.ok) throw new Error('Extraction failed');
+
+    const extracted: ExtractedWorkOrder = await response.json();
+    
+    // Map to frontend structure
+    return {
+      property: { value: extracted.building, confidence: extracted.confidence * 100 },
+      unit: { value: extracted.unit, confidence: extracted.confidence * 100 },
+      issue_description: { value: extracted.description, confidence: 95 },
+      priority: { value: extracted.priority as any, confidence: extracted.confidence * 100 },
+      category: { value: extracted.category, confidence: extracted.confidence * 100 },
+      tenant_name: { value: '', confidence: 0 }
+    };
+  } catch (err) {
+    console.error('Extraction error:', err);
+    // Fallback to basic extraction on error
+    return {
+      issue_description: { value: transcription, confidence: 100 },
+      priority: { value: 'normal', confidence: 50 },
+      category: { value: 'General', confidence: 50 }
+    };
+  }
+}
+
+// Real transcription via Edge Function (Whisper)
+export async function transcribeAudio(audioUrl: string): Promise<{ text: string; language: string }> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe-audio`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session?.access_token}`
+      },
+      body: JSON.stringify({ audioUrl })
+    });
+
+    if (!response.ok) throw new Error('Transcription failed');
+
+    const result = await response.json();
+    return {
+      text: result.transcription,
+      language: result.language || 'en'
+    };
+  } catch (err) {
+    console.error('Transcription error:', err);
+    return {
+      text: "Error transcribing audio. Please listen manually.",
+      language: "en"
+    };
+  }
+}
+
+// Orchestrate full processing
+export async function processVoiceSubmission(submissionId: string): Promise<{
+  transcription: string
+  extracted: ExtractedWorkOrderData
+}> {
+  // Get submission from DB
+  const { data: submission } = await supabase
+    .from('voice_submissions')
+    .select('*')
+    .eq('id', submissionId)
+    .single();
+
+  if (!submission?.audio_url) {
+    throw new Error('Submission not found or missing audio');
+  }
+
+  // Step 1: Transcribe
+  const { text: transcription } = await transcribeAudio(submission.audio_url);
+
+  // Step 2: Extract entities
+  const extracted = await extractWorkOrderData(transcription);
+
+  // Step 3: Update submission record
+  await supabase
+    .from('voice_submissions')
+    .update({
+      transcription,
+      extracted_data: extracted, // extracted_data column is JSONB, compatible
+      status: 'ready', // Mark as ready for review
+      processed_at: new Date().toISOString()
+    })
+    .eq('id', submissionId);
+
+  return { transcription, extracted };
 }
 
 // Voice queue operations
@@ -106,14 +160,14 @@ export async function getVoiceQueue(): Promise<VoiceSubmission[]> {
       return getMockVoiceQueue();
     }
 
-    return data.map(row => ({
+    return data.map((row: VoiceSubmissionDB) => ({
       id: row.id,
       audio_url: row.audio_url,
       transcription: row.transcription,
       detected_language: row.detected_language || 'en',
       source: row.source,
       status: row.status,
-      extracted_data: row.extracted_data || {},
+      extracted_data: (row.extracted_data as unknown) as ExtractedWorkOrderData || {},
       created_at: row.created_at,
       processed_at: row.processed_at,
       work_order_id: row.work_order_id
@@ -145,7 +199,7 @@ export async function createWorkOrderFromVoice(
       .from('work_order_actions')
       .insert({
         work_order_id: workOrderId,
-        action_type: 'note',
+        action_type: 'note' as const,
         action_data: {
           type: 'voice_submission_created',
           voice_submission_id: submissionId,

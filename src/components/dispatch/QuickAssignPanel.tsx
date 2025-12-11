@@ -10,13 +10,12 @@ import {
 import { ScrollArea } from "../ui/scroll-area";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { Search, AlertCircle, ArrowRight } from "lucide-react";
+import { Search, ArrowRight } from "lucide-react";
 import { Input } from "../ui/input";
 
 interface QuickAssignPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  technicianId: string | null;
   technicianName: string;
   workOrders: WorkOrder[];
   onConfirmAssign: (workOrderId: string) => void;
@@ -25,7 +24,6 @@ interface QuickAssignPanelProps {
 export function QuickAssignPanel({
   isOpen,
   onClose,
-  technicianId,
   technicianName,
   workOrders,
   onConfirmAssign

@@ -1,59 +1,17 @@
 import { useState, useEffect, useRef } from "react";
-import { MoreVertical, Send, Paperclip, Languages, Globe, Phone, ChevronRight, Image, X } from "lucide-react";
+import { MoreVertical, Send, Languages, Globe, Phone, ChevronRight, Image, X, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Textarea } from "./ui/textarea";
 import { WorkOrder } from "../types";
+import { useMessageThread } from "@/hooks/useMessages";
+import { format } from "date-fns";
 import TypingIndicator from "./TypingIndicator";
-
-interface Message {
-  id: string;
-  from: "tenant" | "coordinator";
-  originalText: string;
-  translatedText?: string;
-  originalLanguage?: string;
-  targetLanguage?: string;
-  timestamp: string;
-  status?: "delivered" | "read";
-  type?: "text" | "system";
-}
 
 interface ConversationThreadProps {
   workOrder?: WorkOrder;
+  currentUserName?: string;
 }
-
-const mockMessages: Message[] = [
-  {
-    id: "1",
-    from: "tenant",
-    originalText: "La tubería debajo del fregadero está goteando mucho",
-    translatedText: "The pipe under the sink is leaking a lot",
-    originalLanguage: "Spanish",
-    targetLanguage: "English",
-    timestamp: "2:34 PM",
-    status: "read",
-  },
-  {
-    id: "2",
-    from: "coordinator",
-    originalText: "I can send Ramon today at 2pm. Does that work?",
-    translatedText: "Puedo enviar a Ramon hoy a las 2pm. ¿Te funciona?",
-    originalLanguage: "English",
-    targetLanguage: "Spanish",
-    timestamp: "2:45 PM",
-    status: "delivered",
-  },
-  {
-    id: "3",
-    from: "tenant",
-    originalText: "Sí, perfecto. Estaré en casa después de las 2pm.",
-    translatedText: "Yes, perfect. I'll be home after 2pm.",
-    originalLanguage: "Spanish",
-    targetLanguage: "English",
-    timestamp: "2:48 PM",
-    status: "read",
-  },
-];
 
 const quickReplyTemplates = [
   "When can you be available?",
@@ -63,23 +21,34 @@ const quickReplyTemplates = [
   "We need access to the unit",
 ];
 
-export function ConversationThread({ workOrder }: ConversationThreadProps) {
+export function ConversationThread({ workOrder, currentUserName = 'Kristine' }: ConversationThreadProps) {
+  const { 
+    messages, 
+    loading, 
+    sendMessage, 
+    markAllAsRead 
+  } = useMessageThread(workOrder?.id || '');
+
   const [messageText, setMessageText] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
+  const [isTyping] = useState(false);
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
+  const [sending, setSending] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Simulate typing indicator
+  // Mark messages as read when viewing
   useEffect(() => {
-    if (!workOrder) return;
-    
-    const showTyping = setTimeout(() => {
-      setIsTyping(true);
-      setTimeout(() => setIsTyping(false), 3000);
-    }, 5000);
+    if (workOrder && messages.length > 0) {
+      markAllAsRead();
+    }
+  }, [workOrder, messages.length, markAllAsRead]);
 
-    return () => clearTimeout(showTyping);
-  }, [workOrder]);
+  // Scroll to bottom on new messages
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -98,6 +67,28 @@ export function ConversationThread({ workOrder }: ConversationThreadProps) {
 
   const removeImage = (index: number) => {
     setAttachedImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSend = async () => {
+    if ((!messageText.trim() && attachedImages.length === 0) || sending) return;
+    
+    setSending(true);
+    try {
+      await sendMessage(messageText.trim(), 'coordinator', currentUserName);
+      setMessageText('');
+      setAttachedImages([]);
+    } catch (err) {
+      console.error('Failed to send message:', err);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
   };
 
   if (!workOrder) {
@@ -138,13 +129,13 @@ export function ConversationThread({ workOrder }: ConversationThreadProps) {
         <div className="flex-1">
           <div className="flex items-center gap-2">
             <span className="text-[14px] font-mono" style={{ color: 'var(--text-secondary)' }}>
-              {workOrder.id}
+              {workOrder.serviceRequestId}
             </span>
-            <span className="text-[20px] leading-[28px]" style={{ color: 'var(--text-primary)' }}>
-              Kitchen Leak
+            <span className="text-[20px] leading-[28px] truncate max-w-[200px]" style={{ color: 'var(--text-primary)' }}>
+              {workOrder.title}
             </span>
           </div>
-          <p className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+          <p className="text-[12px] truncate max-w-[300px]" style={{ color: 'var(--text-secondary)' }}>
             {workOrder.propertyAddress} · Unit {workOrder.unit}
           </p>
         </div>
@@ -174,7 +165,7 @@ export function ConversationThread({ workOrder }: ConversationThreadProps) {
               borderRadius: 'var(--radius-full)'
             }}
           >
-            ML
+            {workOrder.residentName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
           </div>
           <div className="flex-1">
             <div className="flex items-center justify-between mb-1">
@@ -191,18 +182,20 @@ export function ConversationThread({ workOrder }: ConversationThreadProps) {
             <div className="flex items-center gap-2">
               <Globe className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
               <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
-                Preferred Language: Spanish
+                Preferred Language: {workOrder.originalLanguage || 'English'}
               </span>
-              <Badge
-                className="h-5 px-2 text-[11px]"
-                style={{
-                  backgroundColor: 'var(--bg-card)',
-                  color: 'var(--text-secondary)',
-                  borderRadius: 'var(--radius-sm)',
-                }}
-              >
-                ES
-              </Badge>
+              {workOrder.originalLanguage && workOrder.originalLanguage !== 'en' && (
+                <Badge
+                  className="h-5 px-2 text-[11px]"
+                  style={{
+                    backgroundColor: 'var(--bg-card)',
+                    color: 'var(--text-secondary)',
+                    borderRadius: 'var(--radius-sm)',
+                  }}
+                >
+                  {workOrder.originalLanguage.substring(0, 2).toUpperCase()}
+                </Badge>
+              )}
             </div>
           </div>
         </div>
@@ -210,6 +203,7 @@ export function ConversationThread({ workOrder }: ConversationThreadProps) {
 
       {/* Message Thread */}
       <div 
+        ref={scrollRef}
         className="flex-1 overflow-y-auto px-4 pb-4"
         style={{ backgroundColor: 'var(--bg-primary)' }}
       >
@@ -220,96 +214,108 @@ export function ConversationThread({ workOrder }: ConversationThreadProps) {
           </span>
         </div>
 
-        {mockMessages.map((message) => (
-          <div key={message.id} className="mb-4">
-            {message.from === "tenant" ? (
-              <div className="flex justify-start">
-                <div 
-                  className="max-w-[75%] p-3 border"
-                  style={{ 
-                    backgroundColor: 'var(--bg-card)',
-                    borderColor: 'var(--border-default)',
-                    borderRadius: 'var(--radius-md)',
-                    boxShadow: 'var(--shadow-sm)'
-                  }}
-                >
-                  {/* Original Message */}
-                  <p className="text-[14px] mb-3" style={{ color: 'var(--text-primary)' }}>
-                    {message.originalText}
-                  </p>
-
-                  {/* Translation */}
-                  {message.translatedText && (
-                    <>
-                      <div className="h-px mb-3" style={{ backgroundColor: 'var(--border-default)' }} />
-                      <div className="flex items-center gap-2 mb-2">
-                        <Languages className="h-3 w-3" style={{ color: 'var(--text-tertiary)' }} />
-                        <span className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
-                          Auto-translated
-                        </span>
-                      </div>
-                      <p className="text-[12px] italic" style={{ color: 'var(--text-secondary)' }}>
-                        {message.translatedText}
-                      </p>
-                    </>
-                  )}
-
-                  {/* Timestamp */}
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
-                      {message.timestamp}
-                    </span>
-                    <span className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
-                      · {message.status}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="flex justify-end">
-                <div 
-                  className="max-w-[75%] p-3 border"
-                  style={{ 
-                    backgroundColor: 'rgba(37, 99, 235, 0.08)',
-                    borderColor: 'rgba(37, 99, 235, 0.2)',
-                    borderRadius: 'var(--radius-md)',
-                  }}
-                >
-                  {/* Message in English */}
-                  <p className="text-[14px] mb-3" style={{ color: 'var(--text-primary)' }}>
-                    {message.originalText}
-                  </p>
-
-                  {/* Translation sent to tenant */}
-                  {message.translatedText && (
-                    <>
-                      <div className="h-px mb-3" style={{ backgroundColor: 'rgba(37, 99, 235, 0.2)' }} />
-                      <div className="flex items-center gap-2 mb-2">
-                        <Languages className="h-3 w-3" style={{ color: 'var(--text-tertiary)' }} />
-                        <span className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
-                          Sent in Spanish
-                        </span>
-                      </div>
-                      <p className="text-[12px] italic" style={{ color: 'var(--text-secondary)' }}>
-                        {message.translatedText}
-                      </p>
-                    </>
-                  )}
-
-                  {/* Timestamp */}
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
-                      {message.timestamp}
-                    </span>
-                    <span className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
-                      · {message.status}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ))}
+        ) : messages.length === 0 ? (
+          <div className="text-center text-muted-foreground py-8 text-sm">
+            No messages yet. Start the conversation!
+          </div>
+        ) : (
+          messages.map((message) => (
+            <div key={message.id} className="mb-4">
+              {message.senderType === "tenant" ? (
+                <div className="flex justify-start">
+                  <div 
+                    className="max-w-[75%] p-3 border"
+                    style={{ 
+                      backgroundColor: 'var(--bg-card)',
+                      borderColor: 'var(--border-default)',
+                      borderRadius: 'var(--radius-md)',
+                      boxShadow: 'var(--shadow-sm)'
+                    }}
+                  >
+                    {/* Original Message */}
+                    <p className="text-[14px] mb-3 whitespace-pre-wrap" style={{ color: 'var(--text-primary)' }}>
+                      {message.content}
+                    </p>
+
+                    {/* Translation */}
+                    {message.translatedContent && message.translatedContent !== message.content && (
+                      <>
+                        <div className="h-px mb-3" style={{ backgroundColor: 'var(--border-default)' }} />
+                        <div className="flex items-center gap-2 mb-2">
+                          <Languages className="h-3 w-3" style={{ color: 'var(--text-tertiary)' }} />
+                          <span className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
+                            Auto-translated
+                          </span>
+                        </div>
+                        <p className="text-[12px] italic" style={{ color: 'var(--text-secondary)' }}>
+                          {message.translatedContent}
+                        </p>
+                      </>
+                    )}
+
+                    {/* Timestamp */}
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
+                        {format(new Date(message.createdAt), 'h:mm a')}
+                      </span>
+                      <span className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
+                        · {message.isRead ? 'read' : 'delivered'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-end">
+                  <div 
+                    className="max-w-[75%] p-3 border"
+                    style={{ 
+                      backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                      borderColor: 'rgba(37, 99, 235, 0.2)',
+                      borderRadius: 'var(--radius-md)',
+                    }}
+                  >
+                    {/* Message in English */}
+                    <p className="text-[14px] mb-3 whitespace-pre-wrap" style={{ color: 'var(--text-primary)' }}>
+                      {message.content}
+                    </p>
+
+                    {/* Translation sent to tenant */}
+                    {message.originalLanguage && message.originalLanguage !== 'en' && (
+                      <>
+                        <div className="h-px mb-3" style={{ backgroundColor: 'rgba(37, 99, 235, 0.2)' }} />
+                        <div className="flex items-center gap-2 mb-2">
+                          <Languages className="h-3 w-3" style={{ color: 'var(--text-tertiary)' }} />
+                          <span className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
+                            Sent in {message.originalLanguage}
+                          </span>
+                        </div>
+                        {message.translatedContent && (
+                          <p className="text-[12px] italic" style={{ color: 'var(--text-secondary)' }}>
+                            {message.translatedContent}
+                          </p>
+                        )}
+                      </>
+                    )}
+
+                    {/* Timestamp */}
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
+                        {format(new Date(message.createdAt), 'h:mm a')}
+                      </span>
+                      <span className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
+                        · {message.isRead ? 'read' : 'delivered'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))
+        )}
 
         {/* Typing Indicator */}
         {isTyping && <TypingIndicator userName={workOrder.residentName} />}
@@ -389,7 +395,9 @@ export function ConversationThread({ workOrder }: ConversationThreadProps) {
           <Textarea
             value={messageText}
             onChange={(e) => setMessageText(e.target.value)}
+            onKeyPress={handleKeyPress}
             placeholder="Type your message in English..."
+            disabled={sending}
             className="min-h-[80px] pr-12 text-[14px] resize-none border"
             style={{
               backgroundColor: 'var(--bg-primary)',
@@ -401,7 +409,7 @@ export function ConversationThread({ workOrder }: ConversationThreadProps) {
             <div className="flex items-center gap-2">
               <Languages className="h-3 w-3" style={{ color: 'var(--text-tertiary)' }} />
               <span className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
-                Will be translated to Spanish for tenant
+                Will be translated to {workOrder.originalLanguage || 'tenant\'s language'}
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -423,7 +431,8 @@ export function ConversationThread({ workOrder }: ConversationThreadProps) {
               </Button>
               <Button
                 className="h-10 px-5 text-[14px] gap-2"
-                disabled={!messageText.trim() && attachedImages.length === 0}
+                onClick={handleSend}
+                disabled={(!messageText.trim() && attachedImages.length === 0) || sending}
                 style={{
                   backgroundColor: (messageText.trim() || attachedImages.length > 0) ? 'var(--action-primary)' : 'var(--action-primary-disabled)',
                   color: 'var(--text-inverted)',
@@ -431,7 +440,7 @@ export function ConversationThread({ workOrder }: ConversationThreadProps) {
                   opacity: (messageText.trim() || attachedImages.length > 0) ? 1 : 0.4,
                 }}
               >
-                <Send className="h-4 w-4" />
+                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 Send
               </Button>
             </div>

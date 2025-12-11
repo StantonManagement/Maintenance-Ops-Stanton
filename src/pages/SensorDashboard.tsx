@@ -17,9 +17,6 @@ import {
   Battery,
   Clock,
   Bell,
-  ChevronRight,
-  TrendingUp,
-  TrendingDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 

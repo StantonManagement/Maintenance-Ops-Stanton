@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useRules, Rule, RuleType, ruleFields } from '../hooks/useRules';
+import { RuleEditorModal } from '../components/rules/RuleEditorModal';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -13,22 +14,19 @@ import {
   Play,
   Pause,
   Edit,
-  Trash2,
   History,
-  BarChart3,
   Zap,
   AlertTriangle,
   CheckCircle,
-  GitBranch,
-  Copy
+  GitBranch
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function RulesPage() {
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const { 
     rules, 
     activeRules,
-    rulesByType,
     loading, 
     refetch, 
     toggleRule,
@@ -71,7 +69,6 @@ export default function RulesPage() {
   };
 
   const totalFires = rules.reduce((sum, r) => sum + r.fire_count, 0);
-  const totalOverrides = rules.reduce((sum, r) => sum + r.override_count, 0);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -222,7 +219,8 @@ export default function RulesPage() {
                             size="sm"
                             onClick={(e) => {
                               e.stopPropagation();
-                              toast.info('Rule editor coming soon');
+                              // TODO: Pass rule to modal for editing
+                              setIsCreateModalOpen(true);
                             }}
                           >
                             <Edit size={14} />
@@ -453,6 +451,11 @@ export default function RulesPage() {
           )}
         </div>
       </div>
+
+      <RuleEditorModal 
+        isOpen={isCreateModalOpen} 
+        onClose={() => setIsCreateModalOpen(false)} 
+      />
     </div>
   );
 }

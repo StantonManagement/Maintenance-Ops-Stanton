@@ -1,35 +1,38 @@
-import { MessageSquare, ClipboardList, CheckSquare, Calendar, Users, BarChart3, TrendingUp, Settings, Lock, Clock, UserCheck, DollarSign, History, Brain, Mic, Building, Wrench, Settings2, Building2, Activity } from "lucide-react";
+import { useState } from "react";
+import { 
+  MessageSquare, ClipboardList, CheckSquare, Calendar, Users, BarChart3, 
+  TrendingUp, Settings, DollarSign, History, Brain, Mic, 
+  Building, Wrench, Settings2, Building2, Activity, GitMerge, ClipboardCheck,
+  ChevronDown, ChevronRight, Briefcase
+} from "lucide-react";
 import { Badge } from "./ui/badge";
 import { Card } from "./ui/card";
-import { Button } from "./ui/button";
+import { useSidebarStats } from "@/hooks/useSidebarStats";
+import { useOverrides } from "@/hooks/useOverrides";
+import { useActivePortfolio } from "@/providers/PortfolioProvider";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import { useAuth } from "@/providers/AuthProvider";
+import { useRole } from "@/providers/RoleProvider";
 
-export type NavigationView = "messages" | "work-orders" | "approval-queue" | "calendar" | "technicians" | "dispatch" | "voice-queue" | "vendors" | "preventive-maintenance" | "rules" | "portfolio" | "sensors" | "analytics" | "financials" | "overrides" | "ai-settings" | "settings";
+export type NavigationView = "messages" | "work-orders" | "approval-queue" | "duplicates" | "morning-queue" | "calendar" | "technicians" | "dispatch" | "property-operations" | "voice-queue" | "vendors" | "preventive-maintenance" | "rules" | "portfolio" | "sensors" | "analytics" | "financials" | "overrides" | "ai-settings" | "settings" | "units" | "vendor-requests";
 
-interface NavigationItem {
-  icon: React.ComponentType<any>;
+interface NavItem {
+  icon: React.ElementType;
   label: string;
-  badge?: string;
-  phase: 1 | 2 | 3;
   view: NavigationView;
+  badge?: string;
 }
 
-const navigationItems: NavigationItem[] = [
-  { icon: ClipboardList, label: "Work Orders", phase: 1, view: "work-orders" },
-  { icon: Calendar, label: "Calendar", phase: 2, view: "calendar" },
-  { icon: Users, label: "Technicians", phase: 2, view: "technicians" },
-  { icon: BarChart3, label: "Dispatch", phase: 2, view: "dispatch" },
-  { icon: Mic, label: "Voice Queue", phase: 2, view: "voice-queue" },
-  { icon: Building, label: "Vendors", phase: 2, view: "vendors" },
-  { icon: Wrench, label: "Preventive Maint.", phase: 3, view: "preventive-maintenance" },
-  { icon: Settings2, label: "Rules Engine", phase: 3, view: "rules" },
-  { icon: Building2, label: "Portfolio", phase: 3, view: "portfolio" },
-  { icon: Activity, label: "IoT Sensors", phase: 3, view: "sensors" },
-  { icon: TrendingUp, label: "Analytics", phase: 3, view: "analytics" },
-  { icon: DollarSign, label: "Financials", phase: 3, view: "financials" },
-  { icon: History, label: "Override Log", phase: 3, view: "overrides" },
-  { icon: Brain, label: "AI Settings", phase: 3, view: "ai-settings" },
-  { icon: Settings, label: "Settings", phase: 3, view: "settings" },
-];
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
 
 interface NavigationSidebarProps {
   activeView?: NavigationView;
@@ -37,20 +40,109 @@ interface NavigationSidebarProps {
   unlockAllFeatures?: boolean;
 }
 
-export function NavigationSidebar({ activeView = "messages", onNavigate, unlockAllFeatures = false }: NavigationSidebarProps) {
+export function NavigationSidebar({ activeView = "messages", onNavigate }: NavigationSidebarProps) {
+  const { stats, loading } = useSidebarStats();
+  const { unacknowledgedOverrides } = useOverrides();
+  const { activePortfolio, setActivePortfolio, portfolios, isLoading: portfoliosLoading } = useActivePortfolio();
+  const { profile } = useAuth();
+  const { role } = useRole();
+  
+  // Default expanded state
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(["Operations"]);
+
+  const toggleGroup = (groupLabel: string) => {
+    setExpandedGroups(prev => 
+      prev.includes(groupLabel) 
+        ? prev.filter(g => g !== groupLabel)
+        : [...prev, groupLabel]
+    );
+  };
+
+  const navGroups: NavGroup[] = [
+    {
+      label: "Operations",
+      items: [
+        { icon: BarChart3, label: "Dispatch", view: "dispatch" },
+        { icon: ClipboardCheck, label: "Morning Queue", view: "morning-queue" },
+        { icon: ClipboardList, label: "Work Orders", view: "work-orders" },
+        { icon: CheckSquare, label: "Approval Queue", view: "approval-queue", badge: stats.approvalQueue > 0 ? stats.approvalQueue.toString() : undefined },
+        { icon: GitMerge, label: "Duplicates", view: "duplicates" }
+      ]
+    },
+    {
+      label: "Communication",
+      items: [
+        { icon: MessageSquare, label: "Messages", view: "messages", badge: stats.unreadMessages > 0 ? stats.unreadMessages.toString() : undefined },
+        { icon: Mic, label: "Voice Queue", view: "voice-queue" }
+      ]
+    },
+    {
+      label: "Team",
+      items: [
+        { icon: Users, label: "Technicians", view: "technicians" },
+        { icon: Calendar, label: "Calendar", view: "calendar" },
+        { icon: History, label: "Override Log", view: "overrides", badge: unacknowledgedOverrides.length > 0 ? unacknowledgedOverrides.length.toString() : undefined }
+      ]
+    },
+    {
+      label: "Vendors",
+      items: [
+        { icon: Building, label: "Vendor Directory", view: "vendors" }
+      ]
+    },
+    {
+      label: "Properties",
+      items: [
+        { icon: Building2, label: "Property Ops", view: "property-operations" },
+        { icon: Building2, label: "Portfolio", view: "portfolio" },
+        { icon: Activity, label: "IoT Sensors", view: "sensors" },
+        { icon: Wrench, label: "Preventive Maint.", view: "preventive-maintenance" }
+      ]
+    },
+    {
+      label: "Intelligence",
+      items: [
+        { icon: TrendingUp, label: "Analytics", view: "analytics" },
+        { icon: DollarSign, label: "Financials", view: "financials" },
+        { icon: Settings2, label: "Rules Engine", view: "rules" }
+      ]
+    }
+  ];
+
   return (
-    <div 
+    <div  
       className="w-[240px] border-r flex flex-col h-screen"
       style={{ 
         backgroundColor: 'var(--bg-card)',
         borderColor: 'var(--border-default)'
       }}
     >
-      {/* Header */}
-      <div className="h-12 flex items-center px-6 border-b" style={{ borderColor: 'var(--border-default)' }}>
-        <h1 className="text-[20px] leading-[28px] tracking-wider" style={{ color: 'var(--text-primary)' }}>
-          MAINTENANCEOPS
-        </h1>
+      {/* Portfolio Selector Header */}
+      <div className="h-16 flex flex-col justify-center px-4 border-b space-y-1" style={{ borderColor: 'var(--border-default)' }}>
+        <div className="flex items-center gap-2 text-[10px] font-semibold text-muted-foreground tracking-wider uppercase">
+          <Briefcase className="h-3 w-3" />
+          <span>Portfolio</span>
+        </div>
+        <Select 
+          value={activePortfolio?.id} 
+          onValueChange={(val) => {
+            const selected = portfolios.find(p => p.id === val);
+            setActivePortfolio(selected || null);
+          }}
+          disabled={portfoliosLoading}
+        >
+          <SelectTrigger className="w-full h-8 text-sm border-0 p-0 shadow-none bg-transparent focus:ring-0 font-bold px-1 hover:bg-accent/50 rounded-sm">
+            <SelectValue placeholder="Select Portfolio" />
+          </SelectTrigger>
+          <SelectContent>
+            {portfolios.map(p => (
+              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+            ))}
+            {portfolios.length === 0 && (
+              <div className="p-2 text-xs text-muted-foreground">No portfolios found</div>
+            )}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* User Info */}
@@ -64,17 +156,21 @@ export function NavigationSidebar({ activeView = "messages", onNavigate, unlockA
               borderRadius: 'var(--radius-full)'
             }}
           >
-            KC
+            {profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : 'U'}
           </div>
           <div>
-            <p className="text-[14px]" style={{ color: 'var(--text-primary)' }}>Kristine Chen</p>
-            <p className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>Maintenance Coordinator</p>
+            <p className="text-[14px] font-medium" style={{ color: 'var(--text-primary)' }}>
+              {profile?.full_name || 'User'}
+            </p>
+            <p className="text-[12px] capitalize" style={{ color: 'var(--text-secondary)' }}>
+              {role || 'Loading...'}
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Active Alerts Card */}
-      <div className="px-3 pt-4">
+      {/* Active Alerts Card (Summary) */}
+      <div className="px-3 pt-4 pb-2">
         <button
           className="w-full p-3 border transition-all"
           style={{
@@ -93,338 +189,177 @@ export function NavigationSidebar({ activeView = "messages", onNavigate, unlockA
           <div className="space-y-1 mb-2">
             <div className="flex items-center justify-between text-[12px]">
               <span style={{ color: '#78716C' }}>Override Active</span>
-              <span style={{ color: '#1A1A1A', fontWeight: 500 }}>(2)</span>
+              <span style={{ color: '#1A1A1A', fontWeight: 500 }}>({unacknowledgedOverrides.length})</span>
             </div>
-            <div className="flex items-center justify-between text-[12px] opacity-60">
-              <span style={{ color: '#78716C' }}>Location Alerts 🔒</span>
-              <span style={{ color: '#78716C' }}>(0)</span>
-            </div>
-          </div>
-          <div className="text-[11px] text-center" style={{ color: '#78716C', fontStyle: 'italic' }}>
-            Click to review
+            {stats.emergencyCount > 0 && (
+              <div className="flex items-center justify-between text-[12px]">
+                <span style={{ color: '#78716C' }}>Emergency</span>
+                <span className="font-bold text-red-600">({stats.emergencyCount})</span>
+              </div>
+            )}
           </div>
         </button>
       </div>
 
-      {/* Quick Action Sections */}
-      <div className="px-3 py-4 space-y-3 border-b" style={{ borderColor: 'var(--border-default)' }}>
-        {/* Messages Section */}
-        <button
-          onClick={() => onNavigate?.("messages")}
-          className="w-full p-4 border transition-all"
-          style={{
-            backgroundColor: activeView === "messages" 
-              ? 'rgba(37, 99, 235, 0.1)' 
-              : 'var(--bg-card)',
-            borderColor: activeView === "messages" 
-              ? 'var(--action-primary)' 
-              : 'var(--border-default)',
-            borderLeftWidth: activeView === "messages" ? '4px' : '1px',
-            borderLeftColor: activeView === "messages" ? 'var(--action-primary)' : undefined,
-            borderRadius: 'var(--radius-md)',
-            cursor: 'pointer',
-          }}
-          onMouseEnter={(e) => {
-            if (activeView !== "messages") {
-              e.currentTarget.style.backgroundColor = 'rgba(37, 99, 235, 0.05)';
-              e.currentTarget.style.borderColor = 'var(--action-primary)';
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (activeView !== "messages") {
-              e.currentTarget.style.backgroundColor = 'var(--bg-card)';
-              e.currentTarget.style.borderColor = 'var(--border-default)';
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = 'none';
-            }
-          }}
-        >
-          <div className="flex items-center gap-3 mb-2">
-            <MessageSquare 
-              className="h-5 w-5" 
-              style={{ color: 'var(--action-primary)' }} 
-            />
-            <span 
-              className="text-[14px] flex-1 text-left"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              Messages
-            </span>
-            <div
-              className="h-5 min-w-5 px-2 flex items-center justify-center text-[11px]"
-              style={{
-                backgroundColor: 'var(--action-primary)',
-                color: 'var(--text-inverted)',
-                borderRadius: 'var(--radius-full)',
-              }}
-            >
-              4
-            </div>
-          </div>
-          <div className="flex items-center gap-2 pl-8">
-            <Clock className="h-3 w-3" style={{ color: 'var(--text-secondary)' }} />
-            <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
-              3 waiting for reply
-            </span>
-          </div>
-        </button>
-
-        {/* Approval Queue Section */}
-        <button
-          onClick={() => onNavigate?.("approval-queue")}
-          className="w-full p-4 border transition-all"
-          style={{
-            backgroundColor: activeView === "approval-queue" 
-              ? 'rgba(245, 158, 11, 0.15)' 
-              : 'var(--bg-card)',
-            borderColor: activeView === "approval-queue" 
-              ? 'var(--status-warning-border)' 
-              : 'var(--border-default)',
-            borderLeftWidth: activeView === "approval-queue" ? '4px' : '1px',
-            borderLeftColor: activeView === "approval-queue" ? 'var(--status-warning-border)' : undefined,
-            borderRadius: 'var(--radius-md)',
-            cursor: 'pointer',
-          }}
-          onMouseEnter={(e) => {
-            if (activeView !== "approval-queue") {
-              e.currentTarget.style.backgroundColor = 'rgba(245, 158, 11, 0.1)';
-              e.currentTarget.style.borderColor = 'var(--status-warning-border)';
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (activeView !== "approval-queue") {
-              e.currentTarget.style.backgroundColor = 'var(--bg-card)';
-              e.currentTarget.style.borderColor = 'var(--border-default)';
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = 'none';
-            }
-          }}
-        >
-          <div className="flex items-center gap-3 mb-2">
-            <CheckSquare 
-              className="h-5 w-5" 
-              style={{ color: 'var(--status-warning-icon)' }} 
-            />
-            <span 
-              className="text-[14px] flex-1 text-left"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              Approval Queue
-            </span>
-            <div
-              className="h-5 min-w-5 px-2 flex items-center justify-center text-[11px]"
-              style={{
-                backgroundColor: 'var(--status-warning-icon)',
-                color: 'var(--text-inverted)',
-                borderRadius: 'var(--radius-full)',
-              }}
-            >
-              5
-            </div>
-          </div>
-          <div className="flex items-center gap-2 pl-8">
-            <UserCheck className="h-3 w-3" style={{ color: 'var(--text-secondary)' }} />
-            <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
-              Ready for review
-            </span>
-          </div>
-          {/* Urgency Indicator */}
-          <div 
-            className="mt-2 ml-8 px-2 py-1 inline-block text-[12px]"
-            style={{
-              backgroundColor: 'rgba(245, 158, 11, 0.2)',
-              color: 'var(--status-warning-text)',
-              borderRadius: 'var(--radius-sm)',
-            }}
-          >
-            3 over 12h
-          </div>
-        </button>
-      </div>
-
-      {/* Navigation Menu */}
-      <nav className="flex-1 py-4 px-3 overflow-y-auto">
-        <div className="space-y-1">
-          {navigationItems.map((item, index) => {
-            const Icon = item.icon;
-            const isLockedByPhase = item.phase > 1;
-            const isLocked = isLockedByPhase && !unlockAllFeatures;
-            const isPhase2 = item.phase === 2;
-            const isPhase3 = item.phase === 3;
-
+      {/* Navigation Groups */}
+      <nav className="flex-1 py-2 px-3 overflow-y-auto">
+        <div className="space-y-4">
+          {navGroups.map((group) => {
+            const isExpanded = expandedGroups.includes(group.label);
             return (
-              <button
-                key={index}
-                className="w-full h-10 flex items-center gap-3 px-3 relative group transition-all"
-                style={{
-                  backgroundColor: activeView === item.view ? 'rgba(37, 99, 235, 0.1)' : 'transparent',
-                  borderLeft: activeView === item.view ? '3px solid var(--action-primary)' : '3px solid transparent',
-                  borderRadius: 'var(--radius-sm)',
-                  cursor: isLocked ? 'not-allowed' : 'pointer',
-                  opacity: isLocked ? 0.6 : 1,
-                }}
-                disabled={isLocked}
-                onClick={() => !isLocked && onNavigate?.(item.view)}
-                title={isLocked ? `Available in Phase ${item.phase}` : undefined}
-              >
-                {isLocked && (
-                  <Lock 
-                    className="h-4 w-4 absolute left-3" 
-                    style={{ 
-                      color: isPhase2 ? 'var(--phase-2-icon)' : 'var(--phase-3-icon)' 
-                    }} 
-                  />
-                )}
-                <Icon 
-                  className="h-5 w-5" 
-                  style={{ 
-                    color: activeView === item.view ? 'var(--action-primary)' : 'var(--text-secondary)',
-                    marginLeft: isLocked ? '16px' : '0'
-                  }} 
-                />
-                <span 
-                  className="text-[14px] flex-1 text-left"
-                  style={{ 
-                    color: activeView === item.view ? 'var(--action-primary)' : 'var(--text-primary)'
-                  }}
+              <div key={group.label} className="space-y-1">
+                <button
+                  onClick={() => toggleGroup(group.label)}
+                  className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  {item.label}
-                </span>
-                {item.badge && !isLocked && (
-                  <Badge 
-                    className="h-5 min-w-5 px-1.5 text-[11px] flex items-center justify-center"
-                    style={{ 
-                      backgroundColor: 'var(--action-primary)',
-                      color: 'var(--text-inverted)',
-                      borderRadius: 'var(--radius-full)'
-                    }}
-                  >
-                    {item.badge}
-                  </Badge>
+                  <span>{group.label}</span>
+                  {isExpanded ? (
+                    <ChevronDown className="h-3 w-3" />
+                  ) : (
+                    <ChevronRight className="h-3 w-3" />
+                  )}
+                </button>
+                
+                {isExpanded && (
+                  <div className="space-y-0.5 ml-1">
+                    {group.items.map((item) => (
+                      <button
+                        key={item.view}
+                        onClick={() => onNavigate?.(item.view)}
+                        className="w-full h-9 flex items-center gap-3 px-3 relative group transition-all"
+                        style={{
+                          backgroundColor: activeView === item.view ? 'rgba(37, 99, 235, 0.1)' : 'transparent',
+                          borderLeft: activeView === item.view ? '3px solid var(--action-primary)' : '3px solid transparent',
+                          borderRadius: 'var(--radius-sm)',
+                          color: activeView === item.view ? 'var(--action-primary)' : 'var(--text-secondary)',
+                        }}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span className="text-[13px] flex-1 text-left">
+                          {item.label}
+                        </span>
+                        {item.badge && (
+                          <Badge 
+                            className="h-5 min-w-5 px-1.5 text-[10px] flex items-center justify-center"
+                            style={{ 
+                              backgroundColor: 'var(--action-primary)',
+                              color: 'var(--text-inverted)',
+                              borderRadius: 'var(--radius-full)'
+                            }}
+                          >
+                            {item.badge}
+                          </Badge>
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 )}
-                {/* Show phase badge when unlocked globally but normally locked */}
-                {isLockedByPhase && unlockAllFeatures && (
-                  <Badge 
-                    className="h-5 px-2 text-[11px] flex items-center gap-1"
-                    style={{ 
-                      backgroundColor: isPhase2 ? 'rgba(168, 85, 247, 0.15)' : 'rgba(107, 114, 128, 0.15)',
-                      color: isPhase2 ? 'var(--phase-2-icon)' : 'var(--phase-3-icon)',
-                      border: `1px solid ${isPhase2 ? 'var(--phase-2-border)' : 'var(--phase-3-border)'}`,
-                      borderRadius: 'var(--radius-full)'
-                    }}
-                  >
-                    Phase {item.phase}
-                  </Badge>
-                )}
-              </button>
+              </div>
             );
           })}
+
+          {/* Settings Section */}
+          <div className="pt-2 border-t mt-2">
+            <button
+              onClick={() => onNavigate?.("settings")}
+              className="w-full h-9 flex items-center gap-3 px-3 relative transition-all"
+              style={{
+                backgroundColor: activeView === "settings" ? 'rgba(37, 99, 235, 0.1)' : 'transparent',
+                borderLeft: activeView === "settings" ? '3px solid var(--action-primary)' : '3px solid transparent',
+                borderRadius: 'var(--radius-sm)',
+                color: activeView === "settings" ? 'var(--action-primary)' : 'var(--text-secondary)',
+              }}
+            >
+              <Settings className="h-4 w-4" />
+              <span className="text-[13px] flex-1 text-left">Settings</span>
+            </button>
+            <button
+              onClick={() => onNavigate?.("ai-settings")}
+              className="w-full h-9 flex items-center gap-3 px-3 relative transition-all"
+              style={{
+                backgroundColor: activeView === "ai-settings" ? 'rgba(37, 99, 235, 0.1)' : 'transparent',
+                borderLeft: activeView === "ai-settings" ? '3px solid var(--action-primary)' : '3px solid transparent',
+                borderRadius: 'var(--radius-sm)',
+                color: activeView === "ai-settings" ? 'var(--action-primary)' : 'var(--text-secondary)',
+              }}
+            >
+              <Brain className="h-4 w-4" />
+              <span className="text-[13px] flex-1 text-left">AI Settings</span>
+            </button>
+          </div>
         </div>
       </nav>
 
-      {/* System Status */}
-      <div className="p-3 space-y-3">
+      {/* System Status - Today's Overview Only */}
+      <div className="p-3 border-t">
         <Card 
-          className="p-4 border"
+          className="p-3 border shadow-none"
           style={{ 
             backgroundColor: 'var(--bg-card)',
             borderColor: 'var(--border-default)',
             borderRadius: 'var(--radius-md)'
           }}
         >
-          <h3 className="text-[12px] mb-3" style={{ color: 'var(--text-secondary)' }}>Today's Overview</h3>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>New Requests</span>
-              <span className="text-[14px] font-mono" style={{ color: 'var(--text-primary)' }}>12</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>In Progress</span>
-              <span className="text-[14px] font-mono" style={{ color: 'var(--text-primary)' }}>4</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>Awaiting Approval</span>
-              <span className="text-[14px] font-mono" style={{ color: 'var(--text-primary)' }}>8</span>
-            </div>
+          <h3 className="text-[11px] mb-2 font-medium" style={{ color: 'var(--text-secondary)' }}>Today's Overview</h3>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <StatItem 
+              label="New" 
+              value={stats.newToday} 
+              loading={loading}
+            />
+            <StatItem 
+              label="In Progress" 
+              value={stats.inProgress}
+              loading={loading}
+            />
+            <StatItem 
+              label="Emergency" 
+              value={stats.emergencyCount}
+              loading={loading}
+              variant="danger"
+            />
+            <StatItem 
+              label="Pending" 
+              value={stats.approvalQueue}
+              loading={loading}
+              variant="warning"
+            />
           </div>
         </Card>
-
-        {/* Phase Overview Card */}
-        <Card 
-          className="p-4 border"
-          style={{ 
-            backgroundColor: 'var(--bg-primary)',
-            borderColor: 'var(--border-default)',
-            borderRadius: 'var(--radius-md)'
-          }}
-        >
-          <h3 className="text-[14px] mb-3" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
-            🚀 Coming Soon
-          </h3>
-          <div className="space-y-2">
-            <div>
-              <div className="text-[12px]" style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
-                Phase 2 (4 features)
-              </div>
-              <div className="text-[11px]" style={{ color: '#F59E0B' }}>
-                Estimated: 4 weeks
-              </div>
-            </div>
-            <div>
-              <div className="text-[12px]" style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
-                Phase 3 (2 features)
-              </div>
-              <div className="text-[11px]" style={{ color: '#9CA3AF' }}>
-                Estimated: 12 weeks
-              </div>
-            </div>
-          </div>
-          <Button
-            className="w-full h-7 mt-3 text-[12px] border"
-            style={{
-              backgroundColor: 'var(--bg-card)',
-              borderColor: 'var(--border-default)',
-              color: 'var(--text-primary)',
-              borderRadius: 'var(--radius-md)',
-            }}
-          >
-            View Roadmap
-          </Button>
-        </Card>
-
-        {/* Unlock Status Badge */}
-        {unlockAllFeatures ? (
-          <div 
-            className="mt-4 p-3 flex items-center gap-2"
-            style={{ 
-              backgroundColor: 'rgba(37, 99, 235, 0.1)',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--action-primary)'
-            }}
-          >
-            <span className="text-[12px]" style={{ color: 'var(--action-primary)' }}>
-              🔓 All features unlocked
-            </span>
-          </div>
-        ) : (
-          <div 
-            className="mt-4 p-3 flex items-center gap-2"
-            style={{ 
-              backgroundColor: 'rgba(107, 114, 128, 0.1)',
-              borderRadius: 'var(--radius-sm)'
-            }}
-          >
-            <Lock className="h-3 w-3" style={{ color: 'var(--phase-3-icon)' }} />
-            <span className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
-              Phase 2/3 features locked
-            </span>
-          </div>
-        )}
       </div>
+    </div>
+  );
+}
+
+// ============================================
+// Helper Components
+// ============================================
+
+interface StatItemProps {
+  label: string;
+  value: number;
+  loading?: boolean;
+  variant?: 'default' | 'danger' | 'warning' | 'success';
+}
+
+function StatItem({ label, value, loading, variant = 'default' }: StatItemProps) {
+  const valueColor = {
+    default: 'text-foreground',
+    danger: 'text-red-500',
+    warning: 'text-amber-500',
+    success: 'text-green-500',
+  }[variant];
+
+  return (
+    <div className="flex flex-col">
+      <span className="text-muted-foreground text-[10px]">{label}</span>
+      {loading ? (
+        <span className="text-sm font-semibold animate-pulse">--</span>
+      ) : (
+        <span className={`text-sm font-semibold ${valueColor}`}>
+          {value}
+        </span>
+      )}
     </div>
   );
 }

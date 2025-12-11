@@ -8,7 +8,7 @@ interface MobileAppProps {
   unlockAllFeatures?: boolean;
 }
 
-export default function MobileApp({ unlockAllFeatures = false }: MobileAppProps) {
+export default function MobileApp({}: MobileAppProps) {
   const [activeTab, setActiveTab] = useState<"messages" | "orders" | "calendar" | "team" | "more">("messages");
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | undefined>(undefined);
 
@@ -23,11 +23,6 @@ export default function MobileApp({ unlockAllFeatures = false }: MobileAppProps)
 
   const handleBackToList = () => {
     setSelectedWorkOrder(undefined);
-  };
-
-  const handleBulkMessage = () => {
-    // Would open bulk message modal
-    console.log("Open bulk message modal");
   };
 
   // Show conversation view
@@ -91,7 +86,6 @@ export default function MobileApp({ unlockAllFeatures = false }: MobileAppProps)
     <>
       <MobileWorkOrderList
         onSelectWorkOrder={handleSelectWorkOrder}
-        onBulkMessage={handleBulkMessage}
       />
       <MobileBottomNav activeTab={activeTab} onTabChange={handleTabChange} />
     </>

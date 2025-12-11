@@ -11,12 +11,20 @@ import moment from 'moment';
 import { useCapacityCheck } from '../hooks/useCapacityCheck';
 import { useOverrideNotification } from '../hooks/useOverrideNotification';
 import { CapacityOverrideModal } from '../components/dispatch/CapacityOverrideModal';
+import { supabase } from '../services/supabase';
+
+// Store the currently dragged work order for drop handling
+let draggedWorkOrder: WorkOrder | null = null;
+
+export function setDraggedWorkOrder(wo: WorkOrder | null) {
+  draggedWorkOrder = wo;
+}
 
 export default function CalendarPage() {
-  const { workOrders } = useWorkOrders();
+  const { workOrders, refetch } = useWorkOrders();
   const { technicians } = useTechnicians();
   const [date, setDate] = useState(new Date());
-  const [view, setView] = useState<View>(Views.WORK_WEEK);
+  const [view, setView] = useState<View>(Views.DAY);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   
   // Hooks
@@ -108,13 +116,14 @@ export default function CalendarPage() {
   const onDropFromOutside = ({ start, resourceId }: any) => {
     console.log('Dropped from outside:', start, resourceId);
     
-    // For now, let's assume the LAST dragged item is what we dropped (safe assumption in single user drag)
-    // In a real app, use `dnd-kit` monitor or a global store.
-    // We'll mock the "dropped item" as the first unscheduled one for demo if we can't get ID.
-    const droppedOrder = unscheduledOrders[0]; 
+    // Use the globally stored dragged work order
+    const droppedOrder = draggedWorkOrder;
     
     if (droppedOrder) {
       handleScheduleRequest(droppedOrder, start, resourceId);
+      draggedWorkOrder = null; // Clear after use
+    } else {
+      toast.error('Could not identify dropped work order');
     }
   };
 
@@ -123,11 +132,8 @@ export default function CalendarPage() {
   };
 
   const handleScheduleRequest = async (workOrder: WorkOrder, start: Date, resourceId: string, isReschedule = false) => {
-    // 1. Find the technician
-    // Note: resourceId in big-calendar might be 'tech-1', we need to match to real ID
-    // For demo, we mock the mapping or assume resourceId matches tech.id if we had it set up that way
-    // Let's assume resourceId maps to index 0 or 1 for demo purposes
-    const tech = technicians[resourceId === 'tech-2' ? 1 : 0] || technicians[0];
+    // 1. Find the technician by ID (resourceId is now the actual technician ID)
+    const tech = technicians.find(t => t.id === resourceId) || technicians[0];
 
     // 2. Check Capacity
     // Only check if we have a tech object. If mocking fails, proceed unsafe or block.
@@ -153,13 +159,14 @@ export default function CalendarPage() {
   };
 
   const openConfirmModal = (workOrder: WorkOrder, start: Date, resourceId: string, isReschedule: boolean) => {
+    const tech = technicians.find(t => t.id === resourceId);
     setConfirmModal({
       isOpen: true,
       workOrder,
-      technicianName: resourceId === 'tech-1' ? 'Ramon M.' : resourceId === 'tech-2' ? 'Sarah L.' : 'Technician', // Mock lookup
+      technicianName: tech?.name || 'Technician',
       date: start,
       isReschedule,
-      tempEvent: { start, end: moment(start).add(2, 'hours').toDate(), resourceId }
+      tempEvent: { start, end: moment(start).add(2, 'hours').toDate(), resourceId, technicianId: resourceId }
     });
   };
 
@@ -168,7 +175,7 @@ export default function CalendarPage() {
     if (pendingScheduleData && technicianId) {
          const tech = technicians.find(t => t.id === technicianId);
          if (tech) {
-            await triggerOverrideNotification(tech.name, pendingScheduleData.workOrder.title, reason, notes);
+            await triggerOverrideNotification(tech.name, pendingScheduleData.workOrder.title, reason, notes, tech.id);
             // Proceed to normal confirmation
             openConfirmModal(
                 pendingScheduleData.workOrder, 
@@ -181,30 +188,51 @@ export default function CalendarPage() {
     setOverrideModal(prev => ({ ...prev, isOpen: false }));
   };
 
-  const handleConfirmSchedule = () => {
+  const handleConfirmSchedule = async () => {
     const { workOrder, tempEvent, isReschedule } = confirmModal;
     if (!workOrder || !tempEvent) return;
 
-    // Optimistically update UI
-    const newEvent: CalendarEvent = {
-      id: isReschedule ? `evt-${workOrder.id}` : `evt-${Date.now()}`,
-      title: workOrder.title,
-      start: tempEvent.start,
-      end: tempEvent.end,
-      resourceId: tempEvent.resourceId,
-      data: workOrder
-    };
+    try {
+      // Persist to database
+      const updateData = {
+        assigned_technician_id: tempEvent.technicianId,
+        scheduled_date: moment(tempEvent.start).format('YYYY-MM-DD'),
+        scheduled_time_start: moment(tempEvent.start).format('HH:mm:ss'),
+        scheduled_time_end: moment(tempEvent.end).format('HH:mm:ss'),
+        status: 'scheduled'
+      };
+      
+      const { error } = await (supabase
+        .from('work_orders') as any)
+        .update(updateData)
+        .eq('id', workOrder.id);
 
-    setEvents(prev => {
-      const filtered = isReschedule ? prev.filter(e => e.data.id !== workOrder.id) : prev;
-      return [...filtered, newEvent];
-    });
+      if (error) throw error;
 
-    toast.success(isReschedule ? 'Rescheduled successfully' : 'Work order scheduled');
-    setConfirmModal({ isOpen: false });
-    
-    // Here we would call Supabase update:
-    // supabase.from('work_orders').update({ scheduled_date: ... })...
+      // Optimistically update UI
+      const newEvent: CalendarEvent = {
+        id: `evt-${workOrder.id}`,
+        title: workOrder.title,
+        start: tempEvent.start,
+        end: tempEvent.end,
+        resourceId: tempEvent.technicianId,
+        data: { ...workOrder, status: 'scheduled' } as WorkOrder
+      };
+
+      setEvents(prev => {
+        const filtered = prev.filter(e => e.data.id !== workOrder.id);
+        return [...filtered, newEvent];
+      });
+
+      toast.success(isReschedule ? 'Rescheduled successfully' : 'Work order scheduled');
+      setConfirmModal({ isOpen: false });
+      
+      // Refetch to sync state
+      refetch();
+    } catch (err: any) {
+      console.error('Failed to schedule work order:', err);
+      toast.error(err.message || 'Failed to schedule work order');
+    }
   };
 
   const overrideTech = technicians.find(t => t.id === overrideModal.technicianId);

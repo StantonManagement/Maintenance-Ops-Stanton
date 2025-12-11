@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Send, Languages, CheckCircle } from "lucide-react";
+import { X, Send, Languages, CheckCircle, RefreshCw } from "lucide-react";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
 import { Textarea } from "./ui/textarea";
@@ -10,13 +10,14 @@ import { toast } from "sonner";
 interface BulkMessagingModalProps {
   workOrders: WorkOrder[];
   onClose: () => void;
-  onSend: (workOrderIds: string[], message: string) => void;
+  onSend: (workOrderIds: string[], message: string) => Promise<void>;
 }
 
 export default function BulkMessagingModal({ workOrders, onClose, onSend }: BulkMessagingModalProps) {
   const [selectedWorkOrders, setSelectedWorkOrders] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [autoTranslate, setAutoTranslate] = useState(true);
+  const [sending, setSending] = useState(false);
 
   const toggleWorkOrder = (id: string) => {
     setSelectedWorkOrders((prev) =>
@@ -32,12 +33,20 @@ export default function BulkMessagingModal({ workOrders, onClose, onSend }: Bulk
     }
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!message.trim() || selectedWorkOrders.length === 0) return;
 
-    onSend(selectedWorkOrders, message);
-    toast.success(`Message sent to ${selectedWorkOrders.length} tenants${autoTranslate ? " (auto-translated)" : ""}`);
-    onClose();
+    setSending(true);
+    try {
+      await onSend(selectedWorkOrders, message);
+      toast.success(`Message sent to ${selectedWorkOrders.length} tenants${autoTranslate ? " (auto-translated)" : ""}`);
+      onClose();
+    } catch (error) {
+      console.error("Failed to send messages", error);
+      toast.error("Failed to send messages");
+    } finally {
+      setSending(false);
+    }
   };
 
   const messagePreview = autoTranslate
@@ -261,16 +270,16 @@ export default function BulkMessagingModal({ workOrders, onClose, onSend }: Bulk
           </Button>
           <Button
             className="flex-1 gap-2"
-            disabled={!message.trim() || selectedWorkOrders.length === 0}
+            disabled={!message.trim() || selectedWorkOrders.length === 0 || sending}
             onClick={handleSend}
             style={{
               backgroundColor: "var(--action-primary)",
               color: "white",
-              opacity: !message.trim() || selectedWorkOrders.length === 0 ? 0.5 : 1,
+              opacity: !message.trim() || selectedWorkOrders.length === 0 || sending ? 0.5 : 1,
             }}
           >
-            <Send size={16} />
-            Send to {selectedWorkOrders.length} Tenant{selectedWorkOrders.length > 1 ? "s" : ""}
+            {sending ? <RefreshCw className="animate-spin h-4 w-4" /> : <Send size={16} />}
+            {sending ? "Sending..." : `Send to ${selectedWorkOrders.length} Tenant${selectedWorkOrders.length > 1 ? "s" : ""}`}
           </Button>
         </div>
       </div>

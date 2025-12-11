@@ -1,5 +1,4 @@
-import { Settings, Bell, Users, Globe, Zap, Shield, User, AlertTriangle, Save, MessageSquare } from "lucide-react";
-import { Badge } from "./ui/badge";
+import { Settings, Bell, Users, Globe, Zap, Shield, User, Save, MessageSquare } from "lucide-react";
 import { Button } from "./ui/button";
 import { Switch } from "./ui/switch";
 import { Card } from "./ui/card";
@@ -12,9 +11,6 @@ export function SettingsView() {
   const [emailNotifs, setEmailNotifs] = useState(true);
   const [pushNotifs, setPushNotifs] = useState(true);
   const [smsNotifs, setSmsNotifs] = useState(false);
-  const [autoTranslate, setAutoTranslate] = useState(true);
-  const [autoAssign, setAutoAssign] = useState(false);
-  const [requireApproval, setRequireApproval] = useState(true);
 
   const renderContent = () => {
     switch (activeTab) {

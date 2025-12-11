@@ -1,4 +1,4 @@
-import { TrendingUp, Clock, DollarSign, CheckCircle2, AlertCircle, Calendar, Building2, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { TrendingUp, Clock, DollarSign, CheckCircle2, AlertCircle, Building2, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { Card } from "./ui/card";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";

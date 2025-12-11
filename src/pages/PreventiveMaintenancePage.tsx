@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { usePreventiveSchedules, PreventiveSchedule, ComplianceDeadline } from '../hooks/usePreventiveSchedules';
+import { CreateScheduleModal } from '../components/preventive/CreateScheduleModal';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -15,16 +16,15 @@ import {
   CheckCircle,
   Wrench,
   Thermometer,
-  Flame,
   Shield,
   FileCheck
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function PreventiveMaintenancePage() {
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const { 
     schedules, 
-    deadlines,
     activeSchedules, 
     upcomingDeadlines,
     overdueDeadlines,
@@ -128,7 +128,7 @@ export default function PreventiveMaintenancePage() {
             <RefreshCw size={14} className={`mr-1 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button size="sm" onClick={() => toast.info('Schedule creation coming soon')}>
+          <Button size="sm" onClick={() => setIsCreateModalOpen(true)}>
             <Plus size={14} className="mr-1" />
             New Schedule
           </Button>
@@ -405,6 +405,11 @@ export default function PreventiveMaintenancePage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <CreateScheduleModal 
+        isOpen={isCreateModalOpen} 
+        onClose={() => setIsCreateModalOpen(false)} 
+      />
     </div>
   );
 }

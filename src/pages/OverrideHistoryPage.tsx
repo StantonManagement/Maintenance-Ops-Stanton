@@ -1,51 +1,11 @@
-import { useState } from 'react';
+import { useOverrideHistory } from '../hooks/useOverrideHistory';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Download, Filter, History } from 'lucide-react';
-
-interface OverrideLog {
-  id: string;
-  timestamp: string;
-  technicianName: string;
-  workOrderTitle: string;
-  overriddenBy: string;
-  reason: string;
-  notes?: string;
-}
-
-const MOCK_LOGS: OverrideLog[] = [
-  {
-    id: '1',
-    timestamp: '2023-12-04T14:30:00',
-    technicianName: 'Ramon M.',
-    workOrderTitle: 'Emergency Pipe Burst',
-    overriddenBy: 'Kristine Chen',
-    reason: 'emergency',
-    notes: 'Water actively flooding unit 204'
-  },
-  {
-    id: '2',
-    timestamp: '2023-12-03T09:15:00',
-    technicianName: 'Sarah L.',
-    workOrderTitle: 'HVAC Failure - Unit 501',
-    overriddenBy: 'Marcus Johnson',
-    reason: 'specialist',
-    notes: 'Sarah is the only certified HVAC tech available today'
-  },
-  {
-    id: '3',
-    timestamp: '2023-12-01T16:45:00',
-    technicianName: 'Ramon M.',
-    workOrderTitle: 'Key Replacement',
-    overriddenBy: 'Kristine Chen',
-    reason: 'manager_request',
-    notes: 'Prop Mgr requested immediate service'
-  }
-];
+import { Download, Filter, History, RefreshCw } from 'lucide-react';
 
 export default function OverrideHistoryPage() {
-  const [logs] = useState<OverrideLog[]>(MOCK_LOGS);
+  const { logs, loading, refetch } = useOverrideHistory();
 
   const getReasonBadge = (reason: string) => {
     switch (reason) {
@@ -69,6 +29,10 @@ export default function OverrideHistoryPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={refetch} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
           <Button variant="outline" className="gap-2">
             <Filter className="h-4 w-4" />
             Filter
@@ -98,20 +62,28 @@ export default function OverrideHistoryPage() {
                 </tr>
               </thead>
               <tbody>
-                {logs.map((log) => (
-                  <tr key={log.id} className="border-t hover:bg-muted/50 transition-colors">
-                    <td className="p-4">
-                      {new Date(log.timestamp).toLocaleString()}
-                    </td>
-                    <td className="p-4 font-medium">{log.technicianName}</td>
-                    <td className="p-4">{log.workOrderTitle}</td>
-                    <td className="p-4">{getReasonBadge(log.reason)}</td>
-                    <td className="p-4 text-muted-foreground">{log.overriddenBy}</td>
-                    <td className="p-4 text-muted-foreground max-w-xs truncate" title={log.notes}>
-                      {log.notes || '-'}
+                {logs.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="p-4 text-center text-muted-foreground">
+                      No override logs found.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  logs.map((log) => (
+                    <tr key={log.id} className="border-t hover:bg-muted/50 transition-colors">
+                      <td className="p-4">
+                        {new Date(log.timestamp).toLocaleString()}
+                      </td>
+                      <td className="p-4 font-medium">{log.technicianName}</td>
+                      <td className="p-4">{log.workOrderTitle}</td>
+                      <td className="p-4">{getReasonBadge(log.reason)}</td>
+                      <td className="p-4 text-muted-foreground">{log.overriddenBy}</td>
+                      <td className="p-4 text-muted-foreground max-w-xs truncate" title={log.notes}>
+                        {log.notes || '-'}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

@@ -6,7 +6,6 @@ import { toast } from "sonner";
 
 interface MobileWorkOrderListProps {
   onSelectWorkOrder: (workOrder: WorkOrder) => void;
-  onBulkMessage: () => void;
 }
 
 const mockWorkOrders: WorkOrder[] = [
@@ -82,7 +81,7 @@ const mockWorkOrders: WorkOrder[] = [
   },
 ];
 
-export function MobileWorkOrderList({ onSelectWorkOrder, onBulkMessage }: MobileWorkOrderListProps) {
+export function MobileWorkOrderList({ onSelectWorkOrder }: MobileWorkOrderListProps) {
   const [activeFilter, setActiveFilter] = useState<"all" | "unread" | "emergency" | "today">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -238,10 +237,10 @@ export function MobileWorkOrderList({ onSelectWorkOrder, onBulkMessage }: Mobile
           <SwipeableWorkOrderCard
             key={workOrder.id}
             workOrder={workOrder}
-            onComplete={(id) => {
+            onComplete={(_) => {
               toast.success("Work order marked as complete!");
             }}
-            onAssign={(id) => {
+            onAssign={(_) => {
               toast.info("Opening assignment options...");
             }}
             onClick={() => onSelectWorkOrder(workOrder)}

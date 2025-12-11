@@ -90,23 +90,6 @@ export function MobileConversation({ workOrder, onBack }: MobileConversationProp
     }
   };
 
-  const getStatusStyle = (status: string) => {
-    switch (status) {
-      case "Waiting for Access":
-        return {
-          backgroundColor: "var(--status-warning-bg)",
-          borderColor: "var(--status-warning-border)",
-          color: "var(--status-warning-text)",
-        };
-      default:
-        return {
-          backgroundColor: "var(--status-success-bg)",
-          borderColor: "var(--status-success-border)",
-          color: "var(--status-success-text)",
-        };
-    }
-  };
-
   return (
     <div className="h-screen flex flex-col" style={{ backgroundColor: "var(--bg-primary)" }}>
       {/* Header */}

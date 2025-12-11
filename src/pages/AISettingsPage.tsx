@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Switch } from '../components/ui/switch';
 import { Label } from '../components/ui/label';
@@ -6,9 +6,28 @@ import { Slider } from '../components/ui/slider';
 import { Button } from '../components/ui/button';
 import { Brain, Settings, Activity, RotateCcw } from 'lucide-react';
 
+const DEFAULT_SETTINGS = {
+  autoAssignThreshold: [85],
+  reviewThreshold: [60],
+  smartClassification: true,
+  technicianRanking: true,
+  photoAnalysis: true,
+  predictiveAlerts: false
+};
+
 export default function AISettingsPage() {
-  const [autoAssignThreshold, setAutoAssignThreshold] = useState([85]);
-  const [reviewThreshold, setReviewThreshold] = useState([60]);
+  const [settings, setSettings] = useState(() => {
+    const saved = localStorage.getItem('ai_settings');
+    return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('ai_settings', JSON.stringify(settings));
+  }, [settings]);
+
+  const updateSetting = (key: keyof typeof DEFAULT_SETTINGS, value: any) => {
+    setSettings((prev: typeof DEFAULT_SETTINGS) => ({ ...prev, [key]: value }));
+  };
   
   return (
     <div className="flex flex-col h-full bg-muted/10 overflow-y-auto p-6 space-y-6">
@@ -35,11 +54,11 @@ export default function AISettingsPage() {
             <div className="space-y-4">
               <div>
                 <div className="flex justify-between mb-2">
-                  <Label>Auto-Assign Confidence ({autoAssignThreshold}%)</Label>
+                  <Label>Auto-Assign Confidence ({settings.autoAssignThreshold}%)</Label>
                 </div>
                 <Slider 
-                  value={autoAssignThreshold} 
-                  onValueChange={setAutoAssignThreshold} 
+                  value={settings.autoAssignThreshold} 
+                  onValueChange={(val) => updateSetting('autoAssignThreshold', val)} 
                   max={100} 
                   step={1} 
                 />
@@ -50,11 +69,11 @@ export default function AISettingsPage() {
 
               <div>
                 <div className="flex justify-between mb-2">
-                  <Label>Suggestion Queue ({reviewThreshold}%)</Label>
+                  <Label>Suggestion Queue ({settings.reviewThreshold}%)</Label>
                 </div>
                 <Slider 
-                  value={reviewThreshold} 
-                  onValueChange={setReviewThreshold} 
+                  value={settings.reviewThreshold} 
+                  onValueChange={(val) => updateSetting('reviewThreshold', val)} 
                   max={100} 
                   step={1} 
                 />
@@ -80,28 +99,40 @@ export default function AISettingsPage() {
                 <Label>Smart Classification</Label>
                 <p className="text-xs text-muted-foreground">Auto-tag priority and category</p>
               </div>
-              <Switch defaultChecked />
+              <Switch 
+                checked={settings.smartClassification}
+                onCheckedChange={(val) => updateSetting('smartClassification', val)}
+              />
             </div>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label>Technician Ranking</Label>
                 <p className="text-xs text-muted-foreground">Suggest best tech for the job</p>
               </div>
-              <Switch defaultChecked />
+              <Switch 
+                checked={settings.technicianRanking}
+                onCheckedChange={(val) => updateSetting('technicianRanking', val)}
+              />
             </div>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label>Photo Analysis</Label>
                 <p className="text-xs text-muted-foreground">Scan completion photos for issues</p>
               </div>
-              <Switch defaultChecked />
+              <Switch 
+                checked={settings.photoAnalysis}
+                onCheckedChange={(val) => updateSetting('photoAnalysis', val)}
+              />
             </div>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label>Predictive Alerts</Label>
                 <p className="text-xs text-muted-foreground">Forecast equipment failures</p>
               </div>
-              <Switch />
+              <Switch 
+                checked={settings.predictiveAlerts}
+                onCheckedChange={(val) => updateSetting('predictiveAlerts', val)}
+              />
             </div>
           </CardContent>
         </Card>

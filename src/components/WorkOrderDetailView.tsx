@@ -8,7 +8,8 @@ import { WorkOrder } from "../types";
 import { ConversationThread } from "./ConversationThread";
 import PhotoViewer from "./PhotoViewer";
 import { FinancialClassification } from "./work-orders/FinancialClassification";
-import { AISuggestionCard } from "./ai/AISuggestionCard";
+import { AISuggestionCard, AIClassificationCard } from "./ai";
+import { useAIClassification, AIClassification } from "../hooks/useAIClassification";
 
 interface WorkOrderDetailViewProps {
   workOrder: WorkOrder;
@@ -30,6 +31,56 @@ const mockHistory = [
 
 export default function WorkOrderDetailView({ workOrder, onClose }: WorkOrderDetailViewProps) {
   const [selectedPhoto, setSelectedPhoto] = useState<number | null>(null);
+  const [aiClassification, setAiClassification] = useState<AIClassification | null>(() => {
+    if (workOrder.aiClassifiedAt && workOrder.aiPriority) {
+      return {
+        priority: workOrder.aiPriority,
+        priorityConfidence: workOrder.aiPriorityConfidence || 0,
+        priorityReasoning: workOrder.aiPriorityReasoning || '',
+        skillsRequired: workOrder.aiSkillsRequired || [],
+        certificationRequired: null,
+        estimatedHours: workOrder.aiEstimatedHours || 0,
+        estimatedHoursConfidence: workOrder.aiEstimatedHoursConfidence || 0,
+        timeFactors: [],
+        likelyParts: workOrder.aiLikelyParts || { highConfidence: [], bringJustInCase: [] },
+        category: workOrder.aiCategory || 'other',
+        subcategory: null,
+        flags: workOrder.aiFlags || {
+          safetyConcern: false,
+          possibleTenantDamage: false,
+          likelyRecurring: false,
+          multiVisitLikely: false,
+        },
+      } as AIClassification;
+    }
+    return null;
+  });
+
+  const { classify, classifying, overridePriority } = useAIClassification();
+
+  const handleClassify = async () => {
+    const result = await classify({
+      id: workOrder.serviceRequestId || workOrder.id,
+      description: workOrder.description || workOrder.title,
+      property: workOrder.propertyAddress,
+      unit: workOrder.unit,
+      residentName: workOrder.residentName,
+      createdAt: workOrder.createdDate,
+    });
+    if (result) {
+      setAiClassification(result);
+    }
+  };
+
+  const handleOverridePriority = async (newPriority: string) => {
+    if (aiClassification) {
+      await overridePriority(
+        workOrder.serviceRequestId || workOrder.id,
+        aiClassification.priority,
+        newPriority
+      );
+    }
+  };
 
   return (
     <>
@@ -198,15 +249,26 @@ export default function WorkOrderDetailView({ workOrder, onClose }: WorkOrderDet
             {/* Details Tab */}
             <TabsContent value="details" className="flex-1 overflow-y-auto p-6 m-0">
               <div className="max-w-3xl space-y-6">
-                {/* AI Suggestion */}
-                <AISuggestionCard
-                  title="Priority Upgrade Suggested"
-                  description="Based on 'leak' and 'damage', this should be classified as Emergency."
-                  confidence={92}
-                  reasoning="Keywords detected: 'leak', 'damage', 'kitchen sink'. Water damage risks require immediate attention."
-                  onAccept={() => console.log('Accepted')}
-                  onReject={() => console.log('Rejected')}
+                {/* AI Classification */}
+                <AIClassificationCard
+                  classification={aiClassification}
+                  isClassifying={classifying === (workOrder.serviceRequestId || workOrder.id)}
+                  onClassify={handleClassify}
+                  onOverridePriority={handleOverridePriority}
+                  workOrderId={workOrder.serviceRequestId || workOrder.id}
                 />
+
+                {/* Legacy AI Suggestion - shown if no AI classification yet */}
+                {!aiClassification && (
+                  <AISuggestionCard
+                    title="Priority Upgrade Suggested"
+                    description="Based on 'leak' and 'damage', this should be classified as Emergency."
+                    confidence={92}
+                    reasoning="Keywords detected: 'leak', 'damage', 'kitchen sink'. Water damage risks require immediate attention."
+                    onAccept={() => console.log('Accepted')}
+                    onReject={() => console.log('Rejected')}
+                  />
+                )}
 
                 <div>
                   <h3 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "12px" }}>

@@ -1,14 +1,24 @@
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Progress } from '../ui/progress';
 import { AlertTriangle } from 'lucide-react';
-
-const BUDGETS = [
-  { property: 'Sunset Heights', budget: 5000, actual: 4200, warning: false },
-  { property: 'Highland Park', budget: 3000, actual: 2950, warning: true },
-  { property: 'River Valley', budget: 6000, actual: 3500, warning: false },
-];
+import { getBudgetStatus, BudgetStatus } from '../../services/analyticsService';
 
 export function BudgetAlerts() {
+  const [budgets, setBudgets] = useState<BudgetStatus[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchBudgets() {
+      const data = await getBudgetStatus();
+      setBudgets(data);
+      setLoading(false);
+    }
+    fetchBudgets();
+  }, []);
+
+  if (loading) return <div className="p-4 text-center text-sm text-muted-foreground">Loading budgets...</div>;
+
   return (
     <Card>
       <CardHeader>
@@ -16,34 +26,35 @@ export function BudgetAlerts() {
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
-          {BUDGETS.map((item) => {
-            const percent = (item.actual / item.budget) * 100;
-            return (
-              <div key={item.property} className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{item.property}</span>
-                    {item.warning && (
-                      <AlertTriangle className="h-4 w-4 text-amber-500" />
-                    )}
+          {budgets.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No budget data available.</p>
+          ) : (
+            budgets.map((item) => {
+              const percent = (item.actual / item.budget) * 100;
+              return (
+                <div key={item.property} className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{item.property}</span>
+                      {item.warning && (
+                        <AlertTriangle className="h-4 w-4 text-amber-500" />
+                      )}
+                    </div>
+                    <span className="text-muted-foreground">
+                      ${item.actual.toLocaleString()} / ${item.budget.toLocaleString()}
+                    </span>
                   </div>
-                  <span className="text-muted-foreground">
-                    ${item.actual.toLocaleString()} / ${item.budget.toLocaleString()}
-                  </span>
+                  <Progress 
+                    value={Math.min(percent, 100)} 
+                    className="h-2" 
+                  />
+                  {percent >= 90 && (
+                    <p className="text-xs text-red-500 font-medium">Critical: Budget nearly exceeded</p>
+                  )}
                 </div>
-                <Progress 
-                  value={percent} 
-                  className="h-2" 
-                  // Note: 'indicatorClassName' is not standard shadcn/ui prop for color, 
-                  // usually handled by passing a class to Progress or customizing the component.
-                  // Assuming default Progress implementation for now.
-                />
-                {percent >= 90 && (
-                  <p className="text-xs text-red-500 font-medium">Critical: Budget nearly exceeded</p>
-                )}
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </CardContent>
     </Card>

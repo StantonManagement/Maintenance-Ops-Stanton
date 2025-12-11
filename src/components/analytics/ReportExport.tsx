@@ -1,42 +1,32 @@
-import { Button } from "../ui/button";
-import { FileDown, FileText } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
-import { toast } from "sonner";
+import { Button } from '../ui/button';
+import { Download } from 'lucide-react';
+import { toast } from 'sonner';
+import { exportToCSV } from '../../lib/export';
+import { useAnalytics } from '../../hooks/useAnalytics';
 
 export function ReportExport() {
-  const handleExport = (format: 'csv' | 'pdf') => {
-    const date = new Date().toISOString().split('T')[0];
-    const filename = `maintenance_report_${date}.${format}`;
-    
-    // In a real app, this would trigger a backend generation or use a client-side library
-    toast.success(`Downloading ${format.toUpperCase()} report...`, {
-      description: `File: ${filename}`
-    });
+  const { metrics, trends, technicianStats, propertyStats } = useAnalytics();
+
+  const handleExport = (type: 'csv' | 'pdf') => {
+    if (type === 'csv') {
+      // Flatten data for export
+      const exportData = [
+        ...trends.map(t => ({ Type: 'Trend', ...t })),
+        ...technicianStats.map(t => ({ Type: 'Technician', ...t })),
+        ...(propertyStats || []).map(p => ({ Type: 'Property', ...p }))
+      ];
+      
+      exportToCSV(exportData, `analytics_report_${new Date().toISOString().split('T')[0]}`);
+      toast.success('Report downloaded');
+    } else {
+      toast.info('PDF export coming soon');
+    }
   };
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="gap-2">
-          <FileDown className="h-4 w-4" />
-          Export Report
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => handleExport('csv')}>
-          <FileText className="mr-2 h-4 w-4" />
-          Export as CSV
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleExport('pdf')}>
-          <FileText className="mr-2 h-4 w-4" />
-          Export as PDF
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Button variant="outline" className="gap-2" onClick={() => handleExport('csv')}>
+      <Download className="h-4 w-4" />
+      Export Report
+    </Button>
   );
 }

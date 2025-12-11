@@ -1,17 +1,26 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../services/supabase'
 import { Technician } from '../types'
+import { useActivePortfolio } from '../providers/PortfolioProvider'
 
 export function useTechnicians() {
+  const { activePortfolio } = useActivePortfolio()
   const [technicians, setTechnicians] = useState<Technician[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
   useEffect(() => {
-    fetchTechnicians()
-  }, [])
+    if (activePortfolio?.id) {
+      fetchTechnicians()
+    } else {
+      setTechnicians([])
+      setLoading(false)
+    }
+  }, [activePortfolio?.id])
 
   async function fetchTechnicians() {
+    if (!activePortfolio?.id) return
+
     try {
       setLoading(true)
       setError(null)
@@ -19,6 +28,7 @@ export function useTechnicians() {
       const { data, error } = await supabase
         .from('technicians')
         .select('*')
+        .eq('portfolio_id', activePortfolio.id)
       
       if (error) {
         // If table doesn't exist, use mock data for now (Prototype fallback)

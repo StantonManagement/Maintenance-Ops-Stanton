@@ -5,23 +5,19 @@ import { Checkbox } from "./ui/checkbox";
 import { Avatar } from "./ui/avatar";
 import { WorkOrder } from "../types";
 import { toast } from "sonner";
+import { useTechnicians } from "../hooks/useTechnicians";
 
 interface BulkAssignmentModalProps {
   workOrders: WorkOrder[];
   onClose: () => void;
-  onAssign: (workOrderIds: string[], technicianId: string) => void;
+  onAssign: (workOrderIds: string[], technicianId: string) => Promise<void>;
 }
 
 export default function BulkAssignmentModal({ workOrders, onClose, onAssign }: BulkAssignmentModalProps) {
+  const { technicians, loading } = useTechnicians();
   const [selectedWorkOrders, setSelectedWorkOrders] = useState<string[]>([]);
   const [selectedTechnician, setSelectedTechnician] = useState<string | null>(null);
-
-  const technicians = [
-    { id: "mike", name: "Mike Johnson", avatar: "MJ", workload: 4, maxWorkload: 6, available: true },
-    { id: "sarah", name: "Sarah Chen", avatar: "SC", workload: 3, maxWorkload: 6, available: true },
-    { id: "carlos", name: "Carlos Rodriguez", avatar: "CR", workload: 5, maxWorkload: 6, available: true },
-    { id: "emily", name: "Emily Davis", avatar: "ED", workload: 2, maxWorkload: 6, available: true },
-  ];
+  const [assigning, setAssigning] = useState(false);
 
   const toggleWorkOrder = (id: string) => {
     setSelectedWorkOrders((prev) =>
@@ -37,13 +33,23 @@ export default function BulkAssignmentModal({ workOrders, onClose, onAssign }: B
     }
   };
 
-  const handleAssign = () => {
+  const handleAssign = async () => {
     if (!selectedTechnician || selectedWorkOrders.length === 0) return;
 
-    onAssign(selectedWorkOrders, selectedTechnician);
-    const tech = technicians.find((t) => t.id === selectedTechnician);
-    toast.success(`Assigned ${selectedWorkOrders.length} work orders to ${tech?.name}`);
-    onClose();
+    setAssigning(true);
+    try {
+      await onAssign(selectedWorkOrders, selectedTechnician);
+      // Toast is handled by parent or here? PRP says success toast. 
+      // Let's assume parent might handle data updates, but we can show toast here if parent doesn't throw.
+      // But wait, WorkOrderList's console.log is sync. 
+      // I'll update WorkOrderList to be async later.
+      onClose();
+    } catch (error) {
+      console.error("Assignment failed", error);
+      toast.error("Failed to assign work orders");
+    } finally {
+      setAssigning(false);
+    }
   };
 
   return (
@@ -139,70 +145,76 @@ export default function BulkAssignmentModal({ workOrders, onClose, onAssign }: B
             </div>
 
             <div className="p-4 space-y-2">
-              {technicians.map((tech) => {
-                const isSelected = selectedTechnician === tech.id;
-                const capacityPercent = (tech.workload / tech.maxWorkload) * 100;
+              {loading ? (
+                <div className="text-center p-4 text-muted-foreground">Loading technicians...</div>
+              ) : technicians.length === 0 ? (
+                <div className="text-center p-4 text-muted-foreground">No technicians available</div>
+              ) : (
+                technicians.map((tech) => {
+                  const isSelected = selectedTechnician === tech.id;
+                  const capacityPercent = (tech.capacity.current / tech.capacity.max) * 100;
 
-                return (
-                  <div
-                    key={tech.id}
-                    className="p-4 rounded-lg border cursor-pointer transition-smooth hover-lift"
-                    style={{
-                      borderColor: isSelected ? "var(--action-primary)" : "var(--border-default)",
-                      backgroundColor: isSelected ? "rgba(37, 99, 235, 0.05)" : "transparent",
-                    }}
-                    onClick={() => setSelectedTechnician(tech.id)}
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      <Avatar className="w-10 h-10">
+                  return (
+                    <div
+                      key={tech.id}
+                      className="p-4 rounded-lg border cursor-pointer transition-smooth hover-lift"
+                      style={{
+                        borderColor: isSelected ? "var(--action-primary)" : "var(--border-default)",
+                        backgroundColor: isSelected ? "rgba(37, 99, 235, 0.05)" : "transparent",
+                      }}
+                      onClick={() => setSelectedTechnician(tech.id)}
+                    >
+                      <div className="flex items-center gap-3 mb-3">
+                        <Avatar className="w-10 h-10">
+                          <div
+                            className="w-full h-full flex items-center justify-center"
+                            style={{
+                              backgroundColor: "var(--action-primary)",
+                              color: "white",
+                              fontSize: "14px",
+                            }}
+                          >
+                            {tech.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                          </div>
+                        </Avatar>
+                        <div className="flex-1">
+                          <div style={{ fontSize: "14px", fontWeight: 600 }}>{tech.name}</div>
+                          <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
+                            {tech.capacity.current}/{tech.capacity.max} work orders
+                          </div>
+                        </div>
+                        {isSelected && (
+                          <CheckCircle size={20} style={{ color: "var(--action-primary)" }} />
+                        )}
+                      </div>
+
+                      {/* Capacity Bar */}
+                      <div className="space-y-1">
                         <div
-                          className="w-full h-full flex items-center justify-center"
-                          style={{
-                            backgroundColor: "var(--action-primary)",
-                            color: "white",
-                            fontSize: "14px",
-                          }}
+                          className="h-2 rounded-full overflow-hidden"
+                          style={{ backgroundColor: "var(--bg-hover)" }}
                         >
-                          {tech.avatar}
+                          <div
+                            className="h-full transition-all"
+                            style={{
+                              width: `${Math.min(capacityPercent, 100)}%`,
+                              backgroundColor:
+                                capacityPercent >= 100
+                                  ? "var(--status-critical-icon)"
+                                  : capacityPercent >= 80
+                                  ? "var(--status-warning-icon)"
+                                  : "var(--status-success-icon)",
+                            }}
+                          />
                         </div>
-                      </Avatar>
-                      <div className="flex-1">
-                        <div style={{ fontSize: "14px", fontWeight: 600 }}>{tech.name}</div>
-                        <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
-                          {tech.workload}/{tech.maxWorkload} work orders
+                        <div style={{ fontSize: "11px", color: "var(--text-tertiary)" }}>
+                          {Math.round(capacityPercent)}% capacity
                         </div>
-                      </div>
-                      {isSelected && (
-                        <CheckCircle size={20} style={{ color: "var(--action-primary)" }} />
-                      )}
-                    </div>
-
-                    {/* Capacity Bar */}
-                    <div className="space-y-1">
-                      <div
-                        className="h-2 rounded-full overflow-hidden"
-                        style={{ backgroundColor: "var(--bg-hover)" }}
-                      >
-                        <div
-                          className="h-full transition-all"
-                          style={{
-                            width: `${capacityPercent}%`,
-                            backgroundColor:
-                              capacityPercent >= 100
-                                ? "var(--status-critical-icon)"
-                                : capacityPercent >= 80
-                                ? "var(--status-warning-icon)"
-                                : "var(--status-success-icon)",
-                          }}
-                        />
-                      </div>
-                      <div style={{ fontSize: "11px", color: "var(--text-tertiary)" }}>
-                        {Math.round(capacityPercent)}% capacity
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
@@ -217,7 +229,7 @@ export default function BulkAssignmentModal({ workOrders, onClose, onAssign }: B
           </Button>
           <Button
             className="flex-1"
-            disabled={!selectedTechnician || selectedWorkOrders.length === 0}
+            disabled={!selectedTechnician || selectedWorkOrders.length === 0 || assigning}
             onClick={handleAssign}
             style={{
               backgroundColor: "var(--action-primary)",
@@ -225,7 +237,7 @@ export default function BulkAssignmentModal({ workOrders, onClose, onAssign }: B
               opacity: !selectedTechnician || selectedWorkOrders.length === 0 ? 0.5 : 1,
             }}
           >
-            Assign {selectedWorkOrders.length > 0 ? `${selectedWorkOrders.length} Work Orders` : ""}
+            {assigning ? "Assigning..." : `Assign ${selectedWorkOrders.length > 0 ? `${selectedWorkOrders.length} Work Orders` : ""}`}
           </Button>
         </div>
       </div>

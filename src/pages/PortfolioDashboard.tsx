@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { usePortfolio, Property } from '../hooks/usePortfolio';
+import { usePortfolio } from '../hooks/usePortfolio';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -7,7 +7,6 @@ import {
   Building2, 
   RefreshCw, 
   TrendingUp, 
-  TrendingDown,
   Clock,
   DollarSign,
   Star,

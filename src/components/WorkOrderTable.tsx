@@ -1,9 +1,10 @@
 import { useState, useRef, useCallback } from "react";
-import { ChevronDown, ChevronUp, MoreVertical, MessageSquare, User, Calendar, AlertCircle, GripVertical, Move } from "lucide-react";
+import { ChevronDown, ChevronUp, MoreVertical, MessageSquare, User, Calendar, AlertCircle } from "lucide-react";
 import { WorkOrder } from "../types";
 import { Badge } from "./ui/badge";
 import { Checkbox } from "./ui/checkbox";
 import { Button } from "./ui/button";
+import { DeadlineWarningBadge } from "./DeadlineWarningBadge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +16,7 @@ interface WorkOrderTableProps {
   workOrders: WorkOrder[];
   selectedWorkOrderId?: string;
   onSelectWorkOrder: (workOrder: WorkOrder) => void;
+  selectedIds?: string[];
   onSelectMultiple?: (workOrderIds: string[]) => void;
 }
 
@@ -38,11 +40,12 @@ export function WorkOrderTable({
   workOrders, 
   selectedWorkOrderId, 
   onSelectWorkOrder,
+  selectedIds = [],
   onSelectMultiple 
 }: WorkOrderTableProps) {
   const [sortField, setSortField] = useState<SortField>("createdDate");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [selectedRows, setSelectedRows] = useState<string[]>([]);
+  // Removed local selectedRows state
   const [columnWidths, setColumnWidths] = useState<ColumnWidths>({
     checkbox: 48,
     id: 100,
@@ -55,6 +58,7 @@ export function WorkOrderTable({
     created: 120,
     actions: 48,
   });
+
   const [isResizing, setIsResizing] = useState<string | null>(null);
   const tableRef = useRef<HTMLTableElement>(null);
   const startXRef = useRef<number>(0);
@@ -108,20 +112,17 @@ export function WorkOrderTable({
   });
 
   const toggleRowSelection = (id: string) => {
-    const newSelection = selectedRows.includes(id)
-      ? selectedRows.filter((rowId) => rowId !== id)
-      : [...selectedRows, id];
-    setSelectedRows(newSelection);
+    const newSelection = selectedIds.includes(id)
+      ? selectedIds.filter((rowId) => rowId !== id)
+      : [...selectedIds, id];
     onSelectMultiple?.(newSelection);
   };
 
   const toggleSelectAll = () => {
-    if (selectedRows.length === workOrders.length) {
-      setSelectedRows([]);
+    if (selectedIds.length === workOrders.length && workOrders.length > 0) {
       onSelectMultiple?.([]);
     } else {
       const allIds = workOrders.map((wo) => wo.id);
-      setSelectedRows(allIds);
       onSelectMultiple?.(allIds);
     }
   };
@@ -273,7 +274,7 @@ export function WorkOrderTable({
             <tr style={{ borderBottom: `1px solid var(--border-default)` }}>
               <ResizableColumnHeader column="checkbox">
                 <Checkbox
-                  checked={selectedRows.length === workOrders.length && workOrders.length > 0}
+                  checked={selectedIds.length === workOrders.length && workOrders.length > 0}
                   onCheckedChange={toggleSelectAll}
                 />
               </ResizableColumnHeader>
@@ -356,7 +357,7 @@ export function WorkOrderTable({
                   onClick={(e) => e.stopPropagation()}
                 >
                   <Checkbox
-                    checked={selectedRows.includes(wo.id)}
+                    checked={selectedIds.includes(wo.id)}
                     onCheckedChange={() => toggleRowSelection(wo.id)}
                   />
                 </td>
@@ -451,14 +452,21 @@ export function WorkOrderTable({
                   className="px-4 py-4"
                   style={{ width: columnWidths.priority, minWidth: columnWidths.priority, maxWidth: columnWidths.priority }}
                 >
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="h-2 w-2 rounded-full"
-                      style={{ backgroundColor: getPriorityColor(wo.priority) }}
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: getPriorityColor(wo.priority) }}
+                      />
+                      <span className="text-[13px] capitalize" style={{ color: "var(--text-secondary)" }}>
+                        {wo.priority}
+                      </span>
+                    </div>
+                    <DeadlineWarningBadge 
+                      hoursUntilBreach={wo.hoursUntilSLABreach}
+                      slaStatus={wo.slaStatus}
+                      className="ml-4"
                     />
-                    <span className="text-[13px] capitalize" style={{ color: "var(--text-secondary)" }}>
-                      {wo.priority}
-                    </span>
                   </div>
                 </td>
                 <td 

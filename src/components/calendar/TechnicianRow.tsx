@@ -1,6 +1,3 @@
-import { Technician } from '../../types';
-import { Badge } from '../ui/badge';
-
 interface TechnicianRowProps {
   label: string;
   resource: {

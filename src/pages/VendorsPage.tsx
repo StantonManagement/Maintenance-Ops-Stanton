@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useVendors, Vendor } from '../hooks/useVendors';
+import { useVendors } from '../hooks/useVendors';
 import { useVendorRequests } from '../hooks/useVendorRequests';
 import { VendorCard } from '../components/vendors/VendorCard';
+import { AddVendorModal } from '../components/vendors/AddVendorModal';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
@@ -12,23 +13,21 @@ import {
   Search, 
   Plus, 
   RefreshCw,
-  Filter,
   Clock,
   CheckCircle,
   XCircle,
   AlertCircle,
-  Zap,
   Building
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function VendorsPage() {
   const { vendors, loading, refetch, activeVendors, emergencyVendors } = useVendors();
-  const { requests, pendingRequests, getResponsesForRequest, selectVendor } = useVendorRequests();
+  const { pendingRequests, getResponsesForRequest, selectVendor } = useVendorRequests();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
-  const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
-
+  const [isAddVendorOpen, setIsAddVendorOpen] = useState(false);
+  
   const categories = [...new Set(vendors.flatMap(v => v.categories))];
 
   const filteredVendors = activeVendors.filter(v => {
@@ -42,7 +41,6 @@ export default function VendorsPage() {
   const handleSelectVendor = async (requestId: string, vendorId: string) => {
     await selectVendor(requestId, vendorId);
     toast.success('Vendor selected successfully');
-    setSelectedRequest(null);
   };
 
   const getStatusBadge = (status: string) => {
@@ -89,7 +87,7 @@ export default function VendorsPage() {
             <RefreshCw size={14} className={`mr-1 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button size="sm" onClick={() => toast.info('Vendor creation coming soon')}>
+          <Button size="sm" onClick={() => setIsAddVendorOpen(true)}>
             <Plus size={14} className="mr-1" />
             Add Vendor
           </Button>
@@ -185,7 +183,6 @@ export default function VendorsPage() {
               <div className="space-y-4 max-w-4xl">
                 {pendingRequests.map(request => {
                   const responses = getResponsesForRequest(request.id);
-                  const acceptedResponses = responses.filter(r => r.response === 'accepted');
                   
                   return (
                     <Card key={request.id}>
@@ -280,6 +277,11 @@ export default function VendorsPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <AddVendorModal 
+        isOpen={isAddVendorOpen} 
+        onClose={() => setIsAddVendorOpen(false)} 
+      />
     </div>
   );
 }

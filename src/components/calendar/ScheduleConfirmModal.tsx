@@ -2,7 +2,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Button } from "../ui/button";
 import { WorkOrder } from "../../types";
 import { Calendar, Clock, User, AlertTriangle } from "lucide-react";
-import { Badge } from "../ui/badge";
 
 interface ScheduleConfirmModalProps {
   isOpen: boolean;

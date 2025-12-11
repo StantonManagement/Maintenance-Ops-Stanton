@@ -16,10 +16,12 @@ import { Textarea } from "./ui/textarea";
 import { Badge } from "./ui/badge";
 import { PhotoUploadButton } from "./PhotoUploadButton";
 import { toast } from "sonner";
-import { useCompleteWorkOrder } from "../hooks/useCompleteWorkOrder";
 
 interface ApprovalInterfaceProps {
   workOrder?: WorkOrder;
+  onApprove?: (notes?: string) => Promise<void>;
+  onReject?: (reason: string) => Promise<void>;
+  processing?: boolean;
 }
 
 interface CompletionPhoto {
@@ -30,10 +32,9 @@ interface CompletionPhoto {
   caption?: string;
 }
 
-export function ApprovalInterface({ workOrder }: ApprovalInterfaceProps) {
+export function ApprovalInterface({ workOrder, onApprove, onReject, processing = false }: ApprovalInterfaceProps) {
   const [approvalNotes, setApprovalNotes] = useState("");
   const [selectedPhoto, setSelectedPhoto] = useState<CompletionPhoto | null>(null);
-  const { completeWorkOrder, rejectWorkOrder, loading } = useCompleteWorkOrder();
   
   // Mock photos for demonstration
   const [photos] = useState<CompletionPhoto[]>([
@@ -60,35 +61,22 @@ export function ApprovalInterface({ workOrder }: ApprovalInterfaceProps) {
     },
   ]);
 
-  const handleApprove = async () => {
-    if (!workOrder) return;
-    
-    const success = await completeWorkOrder(
-      workOrder.id,
-      'Coordinator', // TODO: Get from auth context
-      'coordinator',
-      approvalNotes || undefined
-    );
-    
-    if (success) {
+  const handleApproveClick = async () => {
+    if (onApprove) {
+      await onApprove(approvalNotes);
       setApprovalNotes('');
     }
   };
 
-  const handleReject = async () => {
-    if (!workOrder) return;
+  const handleRejectClick = async () => {
     if (!approvalNotes.trim()) {
       toast.error("Please provide a reason for rejection");
       return;
     }
-    
-    await rejectWorkOrder(
-      workOrder.id,
-      'Coordinator', // TODO: Get from auth context
-      approvalNotes
-    );
-    
-    setApprovalNotes('');
+    if (onReject) {
+      await onReject(approvalNotes);
+      setApprovalNotes('');
+    }
   };
 
   const handleUploadPhotos = (files: FileList) => {
@@ -349,27 +337,27 @@ export function ApprovalInterface({ workOrder }: ApprovalInterfaceProps) {
         <Button
           variant="outline"
           className="flex-1 h-12 gap-2"
-          onClick={handleReject}
-          disabled={loading}
+          onClick={handleRejectClick}
+          disabled={processing}
           style={{
             borderColor: "var(--status-critical-border)",
             color: "var(--status-critical-text)",
           }}
         >
           <XCircle className="h-5 w-5" />
-          {loading ? 'Processing...' : 'Reject Work'}
+          {processing ? 'Processing...' : 'Reject Work'}
         </Button>
         <Button
           className="flex-1 h-12 gap-2"
-          onClick={handleApprove}
-          disabled={loading}
+          onClick={handleApproveClick}
+          disabled={processing}
           style={{
             backgroundColor: "var(--status-success-icon)",
             color: "white",
           }}
         >
           <CheckCircle className="h-5 w-5" />
-          {loading ? 'Processing...' : 'Approve Work'}
+          {processing ? 'Processing...' : 'Approve Work'}
         </Button>
       </div>
 

@@ -1,12 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useLocationTracking } from '../../hooks/useLocationTracking';
-import { TechnicianLocation, propertyLocations, formatETA, getLocationAge } from '../../services/locationService';
+import { propertyLocations, getLocationAge } from '../../services/locationService';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { 
   MapPin, 
-  Navigation, 
   Clock, 
   Battery, 
   RefreshCw,

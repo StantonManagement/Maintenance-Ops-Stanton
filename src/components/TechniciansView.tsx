@@ -3,6 +3,8 @@ import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { useState } from "react";
+import { AddTechnicianModal } from "./technicians/AddTechnicianModal";
 
 interface Technician {
   id: string;
@@ -121,6 +123,7 @@ const technicians: Technician[] = [
 
 export function TechniciansView() {
   const navigate = useNavigate();
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   
   const getStatusConfig = (status: string) => {
     switch (status) {
@@ -192,6 +195,7 @@ export function TechniciansView() {
             color: 'var(--text-inverted)',
             borderRadius: 'var(--radius-md)',
           }}
+          onClick={() => setIsAddModalOpen(true)}
         >
           + Add Technician
         </Button>
@@ -281,7 +285,7 @@ export function TechniciansView() {
                   color: 'var(--text-primary)',
                   borderRadius: 'var(--radius-md)',
                 }}
-                onClick={() => toast.info('Performance reports coming soon')}
+                onClick={() => navigate('/analytics')}
               >
                 📊 Performance Report
               </Button>
@@ -466,7 +470,7 @@ export function TechniciansView() {
                         color: 'var(--text-inverted)',
                         borderRadius: 'var(--radius-md)',
                       }}
-                      onClick={() => toast.info(`Assign work order to ${tech.name} - coming soon`)}
+                      onClick={() => navigate('/dispatch')}
                     >
                       Assign Work Order
                     </Button>
@@ -489,6 +493,11 @@ export function TechniciansView() {
           </div>
         </div>
       </div>
+      
+      <AddTechnicianModal 
+        isOpen={isAddModalOpen} 
+        onClose={() => setIsAddModalOpen(false)} 
+      />
     </div>
   );
 }

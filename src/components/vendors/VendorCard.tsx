@@ -4,11 +4,9 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { 
   Phone, 
-  Mail, 
   Star, 
   Clock, 
   CheckCircle, 
-  AlertTriangle,
   Zap,
   Award
 } from 'lucide-react';

@@ -1,4 +1,4 @@
-import { Calendar, ChevronLeft, ChevronRight, Clock, MapPin, User, Phone, Wrench } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Clock, MapPin, Wrench } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 

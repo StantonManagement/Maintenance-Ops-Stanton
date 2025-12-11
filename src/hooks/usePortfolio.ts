@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, createContext, useContext } from 'react';
-import { supabase } from '../services/supabase';
+import { supabase, PortfolioDB, RegionDB, PropertyPortfolioMappingDB } from '../services/supabase';
 
 export interface Portfolio {
   id: string;
@@ -181,14 +181,14 @@ export function usePortfolio() {
         return;
       }
 
-      setPortfolios(portfoliosData.map(p => ({
+      setPortfolios(portfoliosData.map((p: PortfolioDB) => ({
         id: p.id,
         name: p.name,
         owner_entity: p.description || ''
       })));
 
       if (regionsData && regionsData.length > 0) {
-        setRegions(regionsData.map(r => ({
+        setRegions(regionsData.map((r: RegionDB) => ({
           id: r.id,
           portfolio_id: r.portfolio_id,
           name: r.name,
@@ -199,7 +199,7 @@ export function usePortfolio() {
       }
 
       if (propertiesData && propertiesData.length > 0) {
-        setProperties(propertiesData.map(p => ({
+        setProperties(propertiesData.map((p: PropertyPortfolioMappingDB) => ({
           id: p.property_id,
           name: p.property_name || p.property_id,
           address: `${p.address || ''}, ${p.city || ''}, ${p.state || 'CT'}`,

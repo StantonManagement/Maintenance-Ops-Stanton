@@ -1,53 +1,62 @@
 import { useState, useEffect } from 'react'
-import { supabase, WorkOrderFromDB, TABLES } from '../services/supabase'
-import { WorkOrder, Priority } from '../types'
+import { supabase, TABLES } from '../services/supabase'
+import { WorkOrder, Priority, DeadlineInfo, DeadlineStage } from '../types'
 import { useRealtimeSubscription } from './useRealtimeSubscription'
+import { useActivePortfolio } from '../providers/PortfolioProvider'
 import { toast } from 'sonner'
 
 export function useWorkOrders() {
+  const { activePortfolio } = useActivePortfolio()
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
   useEffect(() => {
-    fetchWorkOrders()
-  }, [])
+    if (activePortfolio?.id) {
+      fetchWorkOrders()
+    } else {
+      setWorkOrders([])
+      setLoading(false)
+    }
+  }, [activePortfolio?.id])
 
   useRealtimeSubscription({
     table: TABLES.WORK_ORDERS,
+    filter: activePortfolio?.id ? `portfolio_id=eq.${activePortfolio.id}` : undefined,
     onData: (payload) => {
-      const { eventType, new: newRecord, old: oldRecord } = payload;
-      
-      if (eventType === 'INSERT') {
-        const newWorkOrder = transformWorkOrder(newRecord as WorkOrderFromDB);
-        setWorkOrders((prev) => [newWorkOrder, ...prev]);
-        toast.info('New work order received');
-      } else if (eventType === 'UPDATE') {
-        const updatedWorkOrder = transformWorkOrder(newRecord as WorkOrderFromDB);
-        setWorkOrders((prev) => prev.map((wo) => (wo.id === updatedWorkOrder.id ? updatedWorkOrder : wo)));
-      } else if (eventType === 'DELETE') {
-        setWorkOrders((prev) => prev.filter((wo) => wo.id !== oldRecord.id));
+      // For realtime, we might need to refetch to get the joined data
+      // or implement a smarter merge. For now, simple refetch or partial update if possible.
+      // Since joins are missing in payload, easiest is to refetch or just update the fields we have.
+      if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+         fetchWorkOrders(); 
+      } else if (payload.eventType === 'DELETE') {
+         setWorkOrders((prev) => prev.filter((wo) => wo.id !== payload.old.id));
       }
     }
   });
 
   async function fetchWorkOrders() {
+    if (!activePortfolio?.id) return
+
     try {
       setLoading(true)
       setError(null)
       
-      // Query the AF_work_order_new table (READ ONLY)
       const { data, error } = await supabase
-        .from(TABLES.WORK_ORDERS)
-        .select('*')
-        .order('CreatedAt', { ascending: false })
-        .limit(50) // Get latest 50 work orders
+        .from('work_orders')
+        .select(`
+          *,
+          properties (name, address_full, code),
+          units (unit_number, tenant_name),
+          technicians (name)
+        `)
+        .eq('portfolio_id', activePortfolio.id)
+        .order('created_at', { ascending: false })
+        .limit(50)
       
       if (error) throw error
       
-      // Transform database records to your WorkOrder type
       const transformedOrders: WorkOrder[] = (data || []).map(transformWorkOrder)
-      
       setWorkOrders(transformedOrders)
     } catch (err) {
       setError(err as Error)
@@ -59,25 +68,22 @@ export function useWorkOrders() {
 
   async function assignWorkOrder(workOrderId: string, technicianId: string, technicianName: string) {
     try {
+      // Direct update to work_orders table
       const { error } = await supabase
-        .from(TABLES.WORK_ORDER_ACTIONS)
-        .insert({
-          work_order_id: workOrderId,
-          action_type: 'assignment',
-          action_data: {
-            technician_id: technicianId,
-            technician_name: technicianName,
-            assigned_at: new Date().toISOString()
-          },
-          created_by: 'coordinator'
-        });
+        .from('work_orders')
+        .update({ 
+          assigned_technician_id: technicianId,
+          // We could also update status to 'ASSIGNED' if business logic requires
+          status: 'assigned'
+        })
+        .eq('id', workOrderId);
 
       if (error) throw error;
 
-      // Update local state to reflect assignment
+      // Optimistic update
       setWorkOrders(prev => prev.map(wo => 
         wo.id === workOrderId 
-          ? { ...wo, assignee: technicianName }
+          ? { ...wo, assignee: technicianName, assignedTechnicianName: technicianName, status: 'ASSIGNED' }
           : wo
       ));
 
@@ -93,21 +99,16 @@ export function useWorkOrders() {
   async function updateWorkOrderStatus(workOrderId: string, newStatus: string, notes?: string) {
     try {
       const { error } = await supabase
-        .from(TABLES.WORK_ORDER_ACTIONS)
-        .insert({
-          work_order_id: workOrderId,
-          action_type: 'status_change',
-          action_data: {
-            new_status: newStatus,
-            notes: notes || null,
-            changed_at: new Date().toISOString()
-          },
-          created_by: 'coordinator'
-        });
+        .from('work_orders')
+        .update({ 
+          status: newStatus.toLowerCase(),
+          // append notes to completion_notes or description? 
+          // For now just status.
+        })
+        .eq('id', workOrderId);
 
       if (error) throw error;
 
-      // Update local state
       setWorkOrders(prev => prev.map(wo => 
         wo.id === workOrderId 
           ? { ...wo, status: newStatus }
@@ -152,8 +153,13 @@ export function useWorkOrder(id?: string) {
       setError(null)
       
       const { data, error } = await supabase
-        .from(TABLES.WORK_ORDERS)
-        .select('*')
+        .from('work_orders')
+        .select(`
+          *,
+          properties (name, address_full, code),
+          units (unit_number, tenant_name),
+          technicians (name)
+        `)
         .eq('id', workOrderId)
         .single()
       
@@ -174,29 +180,86 @@ export function useWorkOrder(id?: string) {
 }
 
 // Helper functions
-function transformWorkOrder(wo: WorkOrderFromDB): WorkOrder {
+function transformWorkOrder(wo: any): WorkOrder {
+  // wo is the joined result, so it has properties from work_orders plus the joined tables
+  
+  const property = wo.properties;
+  const unit = wo.units;
+  const technician = wo.technicians;
+
   return {
     id: wo.id,
-    serviceRequestId: wo.ServiceRequestNumber,
-    workOrderNumber: wo.WorkOrderNumber,
-    title: wo.JobDescription?.substring(0, 100) || 'Untitled Work Order',
-    description: wo.JobDescription || '',
-    propertyCode: wo.PropertyName?.split('-')[0]?.trim() || '',
-    propertyAddress: wo.PropertyAddress || '',
-    unit: wo.UnitName || '',
-    residentName: wo.PrimaryTenant || '',
-    priority: mapPriority(wo.Priority),
-    status: wo.Status || 'NEW',
-    createdDate: formatDate(wo.CreatedAt),
-    vendor: wo.Vendor || '',
-    assignee: wo.AssignedUser || '',
-    // Add other fields with defaults
-    ownerEntity: wo.PropertyName || '',
-    permissionToEnter: 'n/a', // Default since not in AF table
-    unread: true, // Default for new data
-    isNew: true, // Default for new data
-    isResidentSubmitted: false, // Default since not in AF table
+    serviceRequestId: wo.request_number || wo.id, // Fallback
+    workOrderNumber: parseInt(wo.request_number?.replace(/\D/g, '') || '0'),
+    title: wo.description?.substring(0, 100) || 'Untitled Work Order',
+    description: wo.description || '',
+    propertyCode: property?.code || '',
+    propertyAddress: property?.address_full || '',
+    unit: unit?.unit_number || '',
+    residentName: wo.tenant_name || unit?.tenant_name || '',
+    priority: mapPriority(wo.priority),
+    status: wo.status || 'NEW',
+    createdDate: formatDate(wo.created_at),
+    vendor: '', // Not joined yet
+    assignee: technician?.name || '',
+    assignedTechnicianName: technician?.name,
+    
+    ownerEntity: property?.name || '',
+    permissionToEnter: wo.permission_to_enter || 'n/a',
+    unread: wo.has_unread_messages || false,
+    messageCount: wo.message_count || 0,
+    unreadCount: wo.has_unread_messages ? 1 : 0, // Approximate
+    isNew: wo.status === 'new',
+    isResidentSubmitted: wo.source === 'tenant_portal',
+    
+    // SLA / Deadline
+    deadlineInfo: calculateDeadlineStage(wo.deadline_date),
+    
+    // Retain these if they exist in DB or default them
+    scheduledDate: wo.scheduled_date,
   }
+}
+
+function calculateDeadlineStage(deadlineDate: string | null): DeadlineInfo | undefined {
+  if (!deadlineDate) return undefined;
+
+  const deadline = new Date(deadlineDate);
+  const now = new Date();
+  const hoursRemaining = (deadline.getTime() - now.getTime()) / (1000 * 60 * 60);
+  const days = hoursRemaining / 24;
+
+  let stage: DeadlineStage;
+  let action: string;
+
+  if (hoursRemaining < 0) {
+    stage = 'overdue';
+    action = 'Loss occurring';
+  } else if (days <= 1) {
+    stage = 'emergency';
+    action = 'Pull resources if needed';
+  } else if (days <= 3) {
+    stage = 'critical';
+    action = 'Escalate if not in progress';
+  } else if (days <= 7) {
+    stage = 'urgent';
+    action = 'Check if work started';
+  } else if (days <= 14) {
+    stage = 'attention';
+    action = 'Confirm tech assigned, parts ready';
+  } else if (days <= 30) {
+    stage = 'scheduled';
+    action = 'Verify scheduled, confirm materials';
+  } else {
+    stage = 'planning';
+    action = 'Calculate exposure, estimate hours';
+  }
+
+  return {
+    stage,
+    daysRemaining: Math.floor(days),
+    hoursRemaining: Math.floor(hoursRemaining),
+    suggestedAction: action
+  };
 }
 
 function mapPriority(priority: string | null): Priority {

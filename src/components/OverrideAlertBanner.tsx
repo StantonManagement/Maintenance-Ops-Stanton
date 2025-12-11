@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertTriangle, ChevronDown, ChevronUp, Phone, Calendar, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, Phone, Calendar } from "lucide-react";
 import { Button } from "./ui/button";
 
 interface OverrideAlert {

@@ -1,221 +1,146 @@
 import { useState } from "react";
-import { useTechnicians } from "../hooks/useTechnicians";
-import { useWorkOrders } from "../hooks/useWorkOrders";
-import { supabase } from "../services/supabase";
-import { TechnicianGrid } from "../components/dispatch/TechnicianGrid";
-import { QuickAssignPanel } from "../components/dispatch/QuickAssignPanel";
-import { Button } from "../components/ui/button";
-import { LayoutGrid, Map as MapIcon, Filter } from "lucide-react";
+import { useDispatchData } from "../hooks/useDispatchData";
+import { useMapData } from "../hooks/useMapData";
+import { DemandPanel, DemandFilters } from "../components/dispatch/DemandPanel";
+import { SupplyPanel } from "../components/dispatch/SupplyPanel";
+import { DispatchMap } from "../components/map/DispatchMap";
+import { Button } from "@/components/ui/button";
+import { Map as MapIcon, X } from "lucide-react";
 import { toast } from "sonner";
-import { useCapacityCheck } from "../hooks/useCapacityCheck";
-import { useOverrideNotification } from "../hooks/useOverrideNotification";
-import { CapacityOverrideModal } from "../components/dispatch/CapacityOverrideModal";
-import { OverloadedTechsWidget } from "../components/dispatch/OverloadedTechsWidget";
 
 export default function DispatchPage() {
-  const { technicians, loading: loadingTechs } = useTechnicians();
-  const { workOrders, loading: loadingOrders } = useWorkOrders();
-  const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
+  const { unassignedWorkOrders, technicians, loading, error, assignWorkOrder } = useDispatchData();
+  const { technicianPositions, properties, alerts } = useMapData();
   
-  // Hooks
-  const { checkCapacity } = useCapacityCheck();
-  const { triggerOverrideNotification } = useOverrideNotification();
+  const [selectedWorkOrderId, setSelectedWorkOrderId] = useState<string | null>(null);
+  const [showMap, setShowMap] = useState(false);
+  const [demandFilters, setDemandFilters] = useState<DemandFilters>({ urgency: 'all', skillsNeeded: [], propertyId: null, search: '' });
 
-  // Assignment State
-  const [assignPanel, setAssignPanel] = useState<{
-    isOpen: boolean;
-    technicianId: string | null;
-  }>({ isOpen: false, technicianId: null });
-
-  // Override Modal State
-  const [overrideModal, setOverrideModal] = useState<{
-    isOpen: boolean;
-    technicianId: string | null;
-    workOrderId: string | null;
-    currentLoad: number;
-    maxLoad: number;
-  }>({ 
-    isOpen: false, 
-    technicianId: null, 
-    workOrderId: null,
-    currentLoad: 0,
-    maxLoad: 0
+  // Filter demand
+  const filteredWorkOrders = unassignedWorkOrders.filter(wo => {
+    if (demandFilters.search) {
+       const term = demandFilters.search.toLowerCase();
+       return wo.title.toLowerCase().includes(term) || 
+              wo.propertyCode.toLowerCase().includes(term) ||
+              wo.unit.toLowerCase().includes(term);
+    }
+    return true;
   });
 
-  const handleOpenAssign = (technicianId: string) => {
-    setAssignPanel({ isOpen: true, technicianId });
-  };
+  const selectedWorkOrder = unassignedWorkOrders.find(wo => wo.id === selectedWorkOrderId);
+  const selectedSkills = selectedWorkOrder?.aiSkillsRequired || [];
 
-  const performAssignment = async (techId: string, woId: string, overrideReason?: string) => {
-    const tech = technicians.find(t => t.id === techId);
-    const wo = workOrders.find(w => w.id === woId);
-    
-    if (tech && wo) {
-      try {
-        // 1. Create assignment record in work_order_assignments table
-        const { error: assignError } = await supabase
-          .from('work_order_assignments')
-          .insert({
-            work_order_id: woId,
-            technician_id: techId,
-            scheduled_date: new Date().toISOString().split('T')[0],
-            assigned_by: 'coordinator',
-            status: 'scheduled',
-            notes: overrideReason ? `[OVERRIDE] ${overrideReason}` : null
-          });
-
-        if (assignError) {
-          console.error('Failed to create assignment:', assignError.message);
-          toast.error('Failed to save assignment');
-          return;
-        }
-
-        // 2. Also log to work_order_actions for audit trail
-        await supabase
-          .from('work_order_actions')
-          .insert({
-            work_order_id: woId,
-            action_type: 'assignment',
-            action_data: {
-              technician_id: techId,
-              technician_name: tech.name,
-              override_reason: overrideReason || null,
-              assigned_at: new Date().toISOString()
-            },
-            created_by: 'coordinator'
-          });
-
-        toast.success(`Assigned "${wo.title}" to ${tech.name}`);
-      } catch (err) {
-        console.error('Assignment error:', err);
-        toast.error('Assignment failed');
-      }
-      
-      setAssignPanel({ isOpen: false, technicianId: null });
+  const handleAssign = async (techId: string) => {
+    if (!selectedWorkOrderId) {
+      toast.error("Select a work order first");
+      return;
     }
-  };
-
-  const handleConfirmAssign = async (workOrderId: string) => {
-    const techId = assignPanel.technicianId;
-    if (!techId) return;
-
+    
     const tech = technicians.find(t => t.id === techId);
     if (!tech) return;
 
-    const capacity = await checkCapacity(tech.id);
-
-    if (capacity.canAssign) {
-      performAssignment(techId, workOrderId);
-      if (capacity.status === 'warning') {
-        toast.info(`Note: ${tech.name} is now at ${capacity.current + 1}/${capacity.max} capacity.`);
-      }
-    } else {
-      // Trigger Override Flow
-      setOverrideModal({
-        isOpen: true,
-        technicianId: techId,
-        workOrderId,
-        currentLoad: capacity.current,
-        maxLoad: capacity.max
-      });
+    // Optimistic assignment or wait for result
+    const success = await assignWorkOrder(selectedWorkOrderId, techId, tech.name);
+    if (success) {
+      setSelectedWorkOrderId(null);
     }
   };
 
-  const handleOverrideConfirm = async (reason: string, notes: string) => {
-    const { technicianId, workOrderId } = overrideModal;
-    if (technicianId && workOrderId) {
-      const tech = technicians.find(t => t.id === technicianId);
-      const wo = workOrders.find(w => w.id === workOrderId);
-      
-      if (tech && wo) {
-        await triggerOverrideNotification(tech.name, wo.title, reason, notes);
-        performAssignment(technicianId, workOrderId, reason);
-      }
-    }
-    setOverrideModal(prev => ({ ...prev, isOpen: false }));
+  const handleViewSchedule = (techId: string) => {
+    toast.info(`View schedule for ${techId} (Not implemented)`);
   };
 
-  if (loadingTechs || loadingOrders) {
-    return <div className="flex items-center justify-center h-full">Loading dispatch view...</div>;
-  }
-
-  const selectedTech = technicians.find(t => t.id === assignPanel.technicianId);
-  const overrideTech = technicians.find(t => t.id === overrideModal.technicianId);
+  if (loading) return <div className="flex items-center justify-center h-full">Loading dispatch center...</div>;
+  if (error) return <div className="flex items-center justify-center h-full text-red-500">Error: {error.message}</div>;
 
   return (
-    <div className="flex flex-col h-full bg-muted/10">
-      {/* Toolbar */}
-      <div className="h-14 border-b bg-card px-6 flex items-center justify-between">
+    <div className="flex flex-col h-full bg-background relative">
+      {/* Header */}
+      <div className="h-14 border-b bg-card px-6 flex items-center justify-between z-10">
         <div className="flex items-center gap-4">
           <h2 className="font-semibold text-lg">Dispatch Center</h2>
           <div className="flex items-center gap-2 text-sm text-muted-foreground border-l pl-4">
-            <span>{technicians.filter(t => t.status === 'available').length} Available</span>
+            <span>{filteredWorkOrders.length} Unassigned</span>
             <span>·</span>
-            <span>{technicians.filter(t => t.status === 'in-transit').length} In Transit</span>
+            <span>{technicians.filter(t => t.status === 'available').length} Available</span>
           </div>
         </div>
-
+        
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-2">
-            <Filter className="h-4 w-4" />
-            Filter
-          </Button>
-          <div className="flex bg-muted p-1 rounded-md border">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded-sm transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm' : 'text-muted-foreground'}`}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('map')}
-              className={`p-1.5 rounded-sm transition-all ${viewMode === 'map' ? 'bg-white shadow-sm' : 'text-muted-foreground'}`}
-            >
-              <MapIcon className="h-4 w-4" />
-            </button>
-          </div>
+           <Button variant={showMap ? "secondary" : "outline"} size="sm" onClick={() => setShowMap(!showMap)}>
+             <MapIcon className="mr-2 h-4 w-4" />
+             {showMap ? "Hide Map" : "Show Map"}
+           </Button>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-y-auto">
-        {viewMode === 'grid' ? (
-          <div className="flex flex-col">
-            {/* Widget Section */}
-            <div className="px-6 pt-6">
-              <OverloadedTechsWidget 
-                technicians={technicians} 
-                onReassign={handleOpenAssign} 
-              />
-            </div>
-            <TechnicianGrid technicians={technicians} onAssign={handleOpenAssign} />
-          </div>
-        ) : (
-          <div className="flex items-center justify-center h-full text-muted-foreground">
-            Map view coming in future update (Google Maps Integration)
+      {/* Split View Content */}
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Demand Side (Left) */}
+        <div className="flex-1 min-w-[320px] max-w-[50%]">
+          <DemandPanel 
+            workOrders={filteredWorkOrders}
+            selectedId={selectedWorkOrderId}
+            onSelect={setSelectedWorkOrderId}
+            filters={demandFilters}
+            onFilterChange={setDemandFilters}
+          />
+        </div>
+
+        {/* Supply Side (Right) */}
+        <div className="flex-1 bg-muted/10">
+           {selectedWorkOrderId ? (
+             <SupplyPanel 
+               technicians={technicians}
+               selectedWorkOrderSkills={selectedSkills}
+               onAssign={handleAssign}
+               onViewSchedule={handleViewSchedule}
+             />
+           ) : (
+             <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-8 text-center">
+               <p className="font-medium mb-1">Select a work order to assign</p>
+               <p className="text-sm">Select an item from the demand list to see available technicians</p>
+               
+               {/* Show full supply even if no selection? PRP implies split view always visible. 
+                   Let's show SupplyPanel always but maybe simplified if no selection. 
+                   Actually, Coordinator wants to see supply always.
+               */}
+             </div>
+           )}
+           {/* Allow seeing supply always, but highlight logic depends on selection. 
+               Let's render SupplyPanel always.
+           */}
+           {!selectedWorkOrderId && (
+              <SupplyPanel 
+               technicians={technicians}
+               selectedWorkOrderSkills={[]}
+               onAssign={() => toast.error("Select a work order first")}
+               onViewSchedule={handleViewSchedule}
+             />
+           )}
+        </div>
+        
+        {/* Map Overlay */}
+        {showMap && (
+          <div className="absolute inset-0 z-20 bg-background/95 backdrop-blur-sm flex flex-col animate-in fade-in">
+             <div className="h-14 border-b px-6 flex items-center justify-between bg-card">
+                <h3 className="font-semibold">Map View</h3>
+                <Button variant="ghost" size="icon" onClick={() => setShowMap(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+             </div>
+             <div className="flex-1 relative">
+                <DispatchMap
+                  technicianPositions={technicianPositions}
+                  properties={properties}
+                  alerts={alerts}
+                  showGeofences={true}
+                />
+             </div>
           </div>
         )}
       </div>
-
-      {/* Quick Assign Panel */}
-      <QuickAssignPanel
-        isOpen={assignPanel.isOpen}
-        onClose={() => setAssignPanel({ isOpen: false, technicianId: null })}
-        technicianId={assignPanel.technicianId}
-        technicianName={selectedTech?.name || "Technician"}
-        workOrders={workOrders}
-        onConfirmAssign={handleConfirmAssign}
-      />
-
-      {/* Capacity Override Modal */}
-      <CapacityOverrideModal
-        isOpen={overrideModal.isOpen}
-        onClose={() => setOverrideModal(prev => ({ ...prev, isOpen: false }))}
-        onConfirm={handleOverrideConfirm}
-        technicianName={overrideTech?.name || "Technician"}
-        currentLoad={overrideModal.currentLoad}
-        maxLoad={overrideModal.maxLoad}
-      />
     </div>
   );
 }
+

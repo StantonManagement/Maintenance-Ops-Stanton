@@ -1,10 +1,14 @@
 import { Badge } from "./ui/badge";
-import { Building, User, Clock, MessageSquare, Wrench, Calendar, Info, Globe, UserCheck } from "lucide-react";
+import { Checkbox } from "./ui/checkbox";
+import { Building, User, Clock, MessageSquare, Wrench, Calendar, Info, Globe } from "lucide-react";
 import { WorkOrder } from "../types";
+import { DeadlineWarningBadge } from "./DeadlineWarningBadge";
 
 interface WorkOrderCardProps {
   workOrder: WorkOrder;
   selected?: boolean;
+  selectable?: boolean;
+  onSelect?: (checked: boolean) => void;
   onClick?: () => void;
 }
 
@@ -60,7 +64,7 @@ const statusStyles = {
   },
 };
 
-export function WorkOrderCard({ workOrder, selected, onClick }: WorkOrderCardProps) {
+export function WorkOrderCard({ workOrder, selected, selectable, onSelect, onClick }: WorkOrderCardProps) {
   const statusStyle = statusStyles[workOrder.status as keyof typeof statusStyles] || statusStyles["ASSIGNED"];
   const workOrderId = `WO-${workOrder.serviceRequestId}-${workOrder.workOrderNumber}`;
 
@@ -93,6 +97,20 @@ export function WorkOrderCard({ workOrder, selected, onClick }: WorkOrderCardPro
         }
       }}
     >
+      {/* Selection Checkbox */}
+      {selectable && (
+        <div 
+          className="absolute top-6 left-[-12px] z-10"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Checkbox 
+            checked={selected} 
+            onCheckedChange={(checked) => onSelect?.(checked as boolean)}
+            className="bg-white border-gray-300 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+          />
+        </div>
+      )}
+
       {/* Unread Indicator */}
       {workOrder.unread && (
         <div
@@ -169,6 +187,10 @@ export function WorkOrderCard({ workOrder, selected, onClick }: WorkOrderCardPro
               Entry: {workOrder.permissionToEnter.toUpperCase()}
             </Badge>
           )}
+          <DeadlineWarningBadge 
+            hoursUntilBreach={workOrder.hoursUntilSLABreach}
+            slaStatus={workOrder.slaStatus}
+          />
         </div>
       </div>
 
