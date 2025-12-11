@@ -406,145 +406,227 @@ BEGIN
 END $$;
 
 -- ============================================================
--- RLS POLICIES (Drop and recreate to be idempotent)
+-- RLS POLICIES (Only create if table has portfolio_id column)
 -- ============================================================
 
--- Portfolio Users
-DROP POLICY IF EXISTS "Users can view portfolio members" ON public.portfolio_users;
-CREATE POLICY "Users can view portfolio members" ON public.portfolio_users
-    FOR SELECT USING (portfolio_id = ANY(public.user_portfolio_ids()));
+-- Helper to check if column exists
+CREATE OR REPLACE FUNCTION public.column_exists(tbl TEXT, col TEXT) RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = tbl AND column_name = col
+    );
+END;
+$$ LANGUAGE plpgsql;
 
-DROP POLICY IF EXISTS "Users can insert portfolio members" ON public.portfolio_users;
-CREATE POLICY "Users can insert portfolio members" ON public.portfolio_users
-    FOR INSERT WITH CHECK (portfolio_id = ANY(public.user_portfolio_ids()));
+-- Portfolio Users policies
+DO $$
+BEGIN
+    IF public.column_exists('portfolio_users', 'portfolio_id') THEN
+        DROP POLICY IF EXISTS "Users can view portfolio members" ON public.portfolio_users;
+        CREATE POLICY "Users can view portfolio members" ON public.portfolio_users
+            FOR SELECT USING (portfolio_id = ANY(public.user_portfolio_ids()));
+        
+        DROP POLICY IF EXISTS "Users can insert portfolio members" ON public.portfolio_users;
+        CREATE POLICY "Users can insert portfolio members" ON public.portfolio_users
+            FOR INSERT WITH CHECK (portfolio_id = ANY(public.user_portfolio_ids()));
+    END IF;
+END $$;
 
--- Profiles
-DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
-CREATE POLICY "Users can view own profile" ON public.profiles
-    FOR SELECT USING (auth.uid() = id);
+-- Profiles policies (no portfolio_id, uses auth.uid())
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'profiles') THEN
+        DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
+        CREATE POLICY "Users can view own profile" ON public.profiles
+            FOR SELECT USING (auth.uid() = id);
+        
+        DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+        CREATE POLICY "Users can update own profile" ON public.profiles
+            FOR UPDATE USING (auth.uid() = id);
+        
+        DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
+        CREATE POLICY "Users can insert own profile" ON public.profiles
+            FOR INSERT WITH CHECK (auth.uid() = id);
+    END IF;
+END $$;
 
-DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
-CREATE POLICY "Users can update own profile" ON public.profiles
-    FOR UPDATE USING (auth.uid() = id);
+-- Properties policies
+DO $$
+BEGIN
+    IF public.column_exists('properties', 'portfolio_id') THEN
+        DROP POLICY IF EXISTS "Users can view portfolio properties" ON public.properties;
+        CREATE POLICY "Users can view portfolio properties" ON public.properties
+            FOR SELECT USING (portfolio_id = ANY(public.user_portfolio_ids()));
+        
+        DROP POLICY IF EXISTS "Users can insert portfolio properties" ON public.properties;
+        CREATE POLICY "Users can insert portfolio properties" ON public.properties
+            FOR INSERT WITH CHECK (portfolio_id = ANY(public.user_portfolio_ids()));
+        
+        DROP POLICY IF EXISTS "Users can update portfolio properties" ON public.properties;
+        CREATE POLICY "Users can update portfolio properties" ON public.properties
+            FOR UPDATE USING (portfolio_id = ANY(public.user_portfolio_ids()));
+    END IF;
+END $$;
 
-DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
-CREATE POLICY "Users can insert own profile" ON public.profiles
-    FOR INSERT WITH CHECK (auth.uid() = id);
+-- Units policies
+DO $$
+BEGIN
+    IF public.column_exists('units', 'portfolio_id') THEN
+        DROP POLICY IF EXISTS "Users can view portfolio units" ON public.units;
+        CREATE POLICY "Users can view portfolio units" ON public.units
+            FOR SELECT USING (portfolio_id = ANY(public.user_portfolio_ids()));
+        
+        DROP POLICY IF EXISTS "Users can insert portfolio units" ON public.units;
+        CREATE POLICY "Users can insert portfolio units" ON public.units
+            FOR INSERT WITH CHECK (portfolio_id = ANY(public.user_portfolio_ids()));
+        
+        DROP POLICY IF EXISTS "Users can update portfolio units" ON public.units;
+        CREATE POLICY "Users can update portfolio units" ON public.units
+            FOR UPDATE USING (portfolio_id = ANY(public.user_portfolio_ids()));
+    END IF;
+END $$;
 
--- Properties
-DROP POLICY IF EXISTS "Users can view portfolio properties" ON public.properties;
-CREATE POLICY "Users can view portfolio properties" ON public.properties
-    FOR SELECT USING (portfolio_id = ANY(public.user_portfolio_ids()));
+-- Technicians policies
+DO $$
+BEGIN
+    IF public.column_exists('technicians', 'portfolio_id') THEN
+        DROP POLICY IF EXISTS "Users can view portfolio technicians" ON public.technicians;
+        CREATE POLICY "Users can view portfolio technicians" ON public.technicians
+            FOR SELECT USING (portfolio_id = ANY(public.user_portfolio_ids()));
+        
+        DROP POLICY IF EXISTS "Users can insert portfolio technicians" ON public.technicians;
+        CREATE POLICY "Users can insert portfolio technicians" ON public.technicians
+            FOR INSERT WITH CHECK (portfolio_id = ANY(public.user_portfolio_ids()));
+        
+        DROP POLICY IF EXISTS "Users can update portfolio technicians" ON public.technicians;
+        CREATE POLICY "Users can update portfolio technicians" ON public.technicians
+            FOR UPDATE USING (portfolio_id = ANY(public.user_portfolio_ids()));
+    END IF;
+END $$;
 
-DROP POLICY IF EXISTS "Users can insert portfolio properties" ON public.properties;
-CREATE POLICY "Users can insert portfolio properties" ON public.properties
-    FOR INSERT WITH CHECK (portfolio_id = ANY(public.user_portfolio_ids()));
+-- Work Orders policies
+DO $$
+BEGIN
+    IF public.column_exists('work_orders', 'portfolio_id') THEN
+        DROP POLICY IF EXISTS "Users can view portfolio work orders" ON public.work_orders;
+        CREATE POLICY "Users can view portfolio work orders" ON public.work_orders
+            FOR SELECT USING (portfolio_id = ANY(public.user_portfolio_ids()));
+        
+        DROP POLICY IF EXISTS "Users can insert portfolio work orders" ON public.work_orders;
+        CREATE POLICY "Users can insert portfolio work orders" ON public.work_orders
+            FOR INSERT WITH CHECK (portfolio_id = ANY(public.user_portfolio_ids()));
+        
+        DROP POLICY IF EXISTS "Users can update portfolio work orders" ON public.work_orders;
+        CREATE POLICY "Users can update portfolio work orders" ON public.work_orders
+            FOR UPDATE USING (portfolio_id = ANY(public.user_portfolio_ids()));
+    END IF;
+END $$;
 
-DROP POLICY IF EXISTS "Users can update portfolio properties" ON public.properties;
-CREATE POLICY "Users can update portfolio properties" ON public.properties
-    FOR UPDATE USING (portfolio_id = ANY(public.user_portfolio_ids()));
+-- Messages policies
+DO $$
+BEGIN
+    IF public.column_exists('messages', 'portfolio_id') THEN
+        DROP POLICY IF EXISTS "Users can view portfolio messages" ON public.messages;
+        CREATE POLICY "Users can view portfolio messages" ON public.messages
+            FOR SELECT USING (portfolio_id = ANY(public.user_portfolio_ids()));
+        
+        DROP POLICY IF EXISTS "Users can insert portfolio messages" ON public.messages;
+        CREATE POLICY "Users can insert portfolio messages" ON public.messages
+            FOR INSERT WITH CHECK (portfolio_id = ANY(public.user_portfolio_ids()));
+        
+        DROP POLICY IF EXISTS "Users can update portfolio messages" ON public.messages;
+        CREATE POLICY "Users can update portfolio messages" ON public.messages
+            FOR UPDATE USING (portfolio_id = ANY(public.user_portfolio_ids()));
+    END IF;
+END $$;
 
--- Units
-DROP POLICY IF EXISTS "Users can view portfolio units" ON public.units;
-CREATE POLICY "Users can view portfolio units" ON public.units
-    FOR SELECT USING (portfolio_id = ANY(public.user_portfolio_ids()));
+-- Approvals policies
+DO $$
+BEGIN
+    IF public.column_exists('approvals', 'portfolio_id') THEN
+        DROP POLICY IF EXISTS "Users can view portfolio approvals" ON public.approvals;
+        CREATE POLICY "Users can view portfolio approvals" ON public.approvals
+            FOR SELECT USING (portfolio_id = ANY(public.user_portfolio_ids()));
+        
+        DROP POLICY IF EXISTS "Users can insert portfolio approvals" ON public.approvals;
+        CREATE POLICY "Users can insert portfolio approvals" ON public.approvals
+            FOR INSERT WITH CHECK (portfolio_id = ANY(public.user_portfolio_ids()));
+        
+        DROP POLICY IF EXISTS "Users can update portfolio approvals" ON public.approvals;
+        CREATE POLICY "Users can update portfolio approvals" ON public.approvals
+            FOR UPDATE USING (portfolio_id = ANY(public.user_portfolio_ids()));
+    END IF;
+END $$;
 
-DROP POLICY IF EXISTS "Users can insert portfolio units" ON public.units;
-CREATE POLICY "Users can insert portfolio units" ON public.units
-    FOR INSERT WITH CHECK (portfolio_id = ANY(public.user_portfolio_ids()));
+-- Vendors policies
+DO $$
+BEGIN
+    IF public.column_exists('vendors', 'portfolio_id') THEN
+        DROP POLICY IF EXISTS "Users can view portfolio vendors" ON public.vendors;
+        CREATE POLICY "Users can view portfolio vendors" ON public.vendors
+            FOR SELECT USING (portfolio_id = ANY(public.user_portfolio_ids()));
+        
+        DROP POLICY IF EXISTS "Users can insert portfolio vendors" ON public.vendors;
+        CREATE POLICY "Users can insert portfolio vendors" ON public.vendors
+            FOR INSERT WITH CHECK (portfolio_id = ANY(public.user_portfolio_ids()));
+        
+        DROP POLICY IF EXISTS "Users can update portfolio vendors" ON public.vendors;
+        CREATE POLICY "Users can update portfolio vendors" ON public.vendors
+            FOR UPDATE USING (portfolio_id = ANY(public.user_portfolio_ids()));
+    END IF;
+END $$;
 
-DROP POLICY IF EXISTS "Users can update portfolio units" ON public.units;
-CREATE POLICY "Users can update portfolio units" ON public.units
-    FOR UPDATE USING (portfolio_id = ANY(public.user_portfolio_ids()));
-
--- Technicians
-DROP POLICY IF EXISTS "Users can view portfolio technicians" ON public.technicians;
-CREATE POLICY "Users can view portfolio technicians" ON public.technicians
-    FOR SELECT USING (portfolio_id = ANY(public.user_portfolio_ids()));
-
-DROP POLICY IF EXISTS "Users can insert portfolio technicians" ON public.technicians;
-CREATE POLICY "Users can insert portfolio technicians" ON public.technicians
-    FOR INSERT WITH CHECK (portfolio_id = ANY(public.user_portfolio_ids()));
-
-DROP POLICY IF EXISTS "Users can update portfolio technicians" ON public.technicians;
-CREATE POLICY "Users can update portfolio technicians" ON public.technicians
-    FOR UPDATE USING (portfolio_id = ANY(public.user_portfolio_ids()));
-
--- Work Orders
-DROP POLICY IF EXISTS "Users can view portfolio work orders" ON public.work_orders;
-CREATE POLICY "Users can view portfolio work orders" ON public.work_orders
-    FOR SELECT USING (portfolio_id = ANY(public.user_portfolio_ids()));
-
-DROP POLICY IF EXISTS "Users can insert portfolio work orders" ON public.work_orders;
-CREATE POLICY "Users can insert portfolio work orders" ON public.work_orders
-    FOR INSERT WITH CHECK (portfolio_id = ANY(public.user_portfolio_ids()));
-
-DROP POLICY IF EXISTS "Users can update portfolio work orders" ON public.work_orders;
-CREATE POLICY "Users can update portfolio work orders" ON public.work_orders
-    FOR UPDATE USING (portfolio_id = ANY(public.user_portfolio_ids()));
-
--- Messages
-DROP POLICY IF EXISTS "Users can view portfolio messages" ON public.messages;
-CREATE POLICY "Users can view portfolio messages" ON public.messages
-    FOR SELECT USING (portfolio_id = ANY(public.user_portfolio_ids()));
-
-DROP POLICY IF EXISTS "Users can insert portfolio messages" ON public.messages;
-CREATE POLICY "Users can insert portfolio messages" ON public.messages
-    FOR INSERT WITH CHECK (portfolio_id = ANY(public.user_portfolio_ids()));
-
-DROP POLICY IF EXISTS "Users can update portfolio messages" ON public.messages;
-CREATE POLICY "Users can update portfolio messages" ON public.messages
-    FOR UPDATE USING (portfolio_id = ANY(public.user_portfolio_ids()));
-
--- Approvals
-DROP POLICY IF EXISTS "Users can view portfolio approvals" ON public.approvals;
-CREATE POLICY "Users can view portfolio approvals" ON public.approvals
-    FOR SELECT USING (portfolio_id = ANY(public.user_portfolio_ids()));
-
-DROP POLICY IF EXISTS "Users can insert portfolio approvals" ON public.approvals;
-CREATE POLICY "Users can insert portfolio approvals" ON public.approvals
-    FOR INSERT WITH CHECK (portfolio_id = ANY(public.user_portfolio_ids()));
-
-DROP POLICY IF EXISTS "Users can update portfolio approvals" ON public.approvals;
-CREATE POLICY "Users can update portfolio approvals" ON public.approvals
-    FOR UPDATE USING (portfolio_id = ANY(public.user_portfolio_ids()));
-
--- Vendors
-DROP POLICY IF EXISTS "Users can view portfolio vendors" ON public.vendors;
-CREATE POLICY "Users can view portfolio vendors" ON public.vendors
-    FOR SELECT USING (portfolio_id = ANY(public.user_portfolio_ids()));
-
-DROP POLICY IF EXISTS "Users can insert portfolio vendors" ON public.vendors;
-CREATE POLICY "Users can insert portfolio vendors" ON public.vendors
-    FOR INSERT WITH CHECK (portfolio_id = ANY(public.user_portfolio_ids()));
-
-DROP POLICY IF EXISTS "Users can update portfolio vendors" ON public.vendors;
-CREATE POLICY "Users can update portfolio vendors" ON public.vendors
-    FOR UPDATE USING (portfolio_id = ANY(public.user_portfolio_ids()));
-
--- Audit Log
-DROP POLICY IF EXISTS "Users can view portfolio audit logs" ON public.audit_log;
-CREATE POLICY "Users can view portfolio audit logs" ON public.audit_log
-    FOR SELECT USING (portfolio_id = ANY(public.user_portfolio_ids()));
+-- Audit Log policies
+DO $$
+BEGIN
+    IF public.column_exists('audit_log', 'portfolio_id') THEN
+        DROP POLICY IF EXISTS "Users can view portfolio audit logs" ON public.audit_log;
+        CREATE POLICY "Users can view portfolio audit logs" ON public.audit_log
+            FOR SELECT USING (portfolio_id = ANY(public.user_portfolio_ids()));
+    END IF;
+END $$;
 
 -- ============================================================
--- INDEXES
+-- INDEXES (Only create if column exists)
 -- ============================================================
 
-CREATE INDEX IF NOT EXISTS idx_work_orders_portfolio ON public.work_orders(portfolio_id);
-CREATE INDEX IF NOT EXISTS idx_work_orders_status ON public.work_orders(portfolio_id, status);
-CREATE INDEX IF NOT EXISTS idx_work_orders_priority ON public.work_orders(portfolio_id, priority);
-CREATE INDEX IF NOT EXISTS idx_work_orders_assigned ON public.work_orders(portfolio_id, assigned_technician_id);
-CREATE INDEX IF NOT EXISTS idx_work_orders_scheduled ON public.work_orders(portfolio_id, scheduled_date);
-
-CREATE INDEX IF NOT EXISTS idx_units_portfolio ON public.units(portfolio_id);
-CREATE INDEX IF NOT EXISTS idx_units_property ON public.units(property_id);
-
-CREATE INDEX IF NOT EXISTS idx_messages_portfolio ON public.messages(portfolio_id);
-CREATE INDEX IF NOT EXISTS idx_messages_work_order ON public.messages(work_order_id, created_at);
-
-CREATE INDEX IF NOT EXISTS idx_technicians_portfolio ON public.technicians(portfolio_id);
-CREATE INDEX IF NOT EXISTS idx_properties_portfolio ON public.properties(portfolio_id);
+DO $$
+BEGIN
+    IF public.column_exists('work_orders', 'portfolio_id') THEN
+        CREATE INDEX IF NOT EXISTS idx_work_orders_portfolio ON public.work_orders(portfolio_id);
+    END IF;
+    IF public.column_exists('work_orders', 'portfolio_id') AND public.column_exists('work_orders', 'status') THEN
+        CREATE INDEX IF NOT EXISTS idx_work_orders_status ON public.work_orders(portfolio_id, status);
+    END IF;
+    IF public.column_exists('work_orders', 'portfolio_id') AND public.column_exists('work_orders', 'priority') THEN
+        CREATE INDEX IF NOT EXISTS idx_work_orders_priority ON public.work_orders(portfolio_id, priority);
+    END IF;
+    IF public.column_exists('work_orders', 'portfolio_id') AND public.column_exists('work_orders', 'assigned_technician_id') THEN
+        CREATE INDEX IF NOT EXISTS idx_work_orders_assigned ON public.work_orders(portfolio_id, assigned_technician_id);
+    END IF;
+    IF public.column_exists('work_orders', 'portfolio_id') AND public.column_exists('work_orders', 'scheduled_date') THEN
+        CREATE INDEX IF NOT EXISTS idx_work_orders_scheduled ON public.work_orders(portfolio_id, scheduled_date);
+    END IF;
+    IF public.column_exists('units', 'portfolio_id') THEN
+        CREATE INDEX IF NOT EXISTS idx_units_portfolio ON public.units(portfolio_id);
+    END IF;
+    IF public.column_exists('units', 'property_id') THEN
+        CREATE INDEX IF NOT EXISTS idx_units_property ON public.units(property_id);
+    END IF;
+    IF public.column_exists('messages', 'portfolio_id') THEN
+        CREATE INDEX IF NOT EXISTS idx_messages_portfolio ON public.messages(portfolio_id);
+    END IF;
+    IF public.column_exists('messages', 'work_order_id') THEN
+        CREATE INDEX IF NOT EXISTS idx_messages_work_order ON public.messages(work_order_id, created_at);
+    END IF;
+    IF public.column_exists('technicians', 'portfolio_id') THEN
+        CREATE INDEX IF NOT EXISTS idx_technicians_portfolio ON public.technicians(portfolio_id);
+    END IF;
+    IF public.column_exists('properties', 'portfolio_id') THEN
+        CREATE INDEX IF NOT EXISTS idx_properties_portfolio ON public.properties(portfolio_id);
+    END IF;
+END $$;
 
 -- ============================================================
 -- MIGRATION COMPLETE
